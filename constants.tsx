@@ -1,0 +1,48 @@
+
+import React from 'react';
+
+export const HOTEL_INFO = {
+  name: 'BLUE ORCHID FAMILY HOTEL & COTTAGE',
+  address: 'Jalan Kalen Buaya No.22 Pantai Barat Pangandaran West Java-Indonesia',
+  phone: '+622657500888/+62 813 2400 3413',
+  email: 'hotelpangandaranblueorchid@gmail.com',
+  website: '-',
+  logo: 'https://picsum.photos/id/43/200/200',
+  googleSheetUrl: 'https://script.google.com/macros/s/AKfycbzXKE-7cpn-Yj2sitUhGFUrrZCesbYCpnXwJZzBrNZ4REMT_t8bkSiD6BzQ5F8xtFiz/exec'
+};
+
+export const ROOM_TYPES = [
+  'Standar',
+  'Deluxe',
+  'Suite',
+  'Junior Suite',
+  'President',
+  'Cottage'
+];
+
+export const ROOM_DESCRIPTIONS = [
+  'Standar Room',
+  'Deluxe Room',
+  'Suite Room',
+  'Junior Suite Room',
+  'President Room',
+  'Charge Extra Bed',
+  'Charge Extra Breakfast Dewasa',
+  'Charge Extra Breakfast Anak',
+  'Charge Late Check-out ',
+  'Charge Early Check-in',
+  'Restaurant / Room Service',
+  'Airport Transfer'
+];
+
+export const PAYMENT_METHODS = [
+  'Cash',
+  'QRIS',
+  'Credit Card',
+  'Bank Transfer',
+  'Debit Card',
+  'E-Wallet',
+  'Travel Agent'
+];
+
+export const TAX_RATE = 0; // Pajak dinonaktifkan (0%)
