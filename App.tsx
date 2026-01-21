@@ -181,14 +181,25 @@ const App: React.FC = () => {
   const createNewInvoice = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const lastCashier = invoices.length > 0 ? invoices[0].cashierName : '';
+    const currentYear = new Date().getFullYear();
+    const prefix = `INV-${currentYear}-`;
+
+    // Filter invoice yang memiliki prefix tahun ini dan ambil angka urutannya
+    const sequenceNumbers = invoices
+      .filter(inv => inv.invoiceNumber.startsWith(prefix))
+      .map(inv => {
+        const parts = inv.invoiceNumber.split('-');
+        const sequencePart = parts[parts.length - 1];
+        return parseInt(sequencePart, 10);
+      })
+      .filter(num => !isNaN(num));
+
+    // Ambil angka tertinggi, atau mulai dari 0 jika belum ada
+    const maxSequence = sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) : 0;
+    const nextSequence = maxSequence + 1;
     
-    let newInvoiceNumber = "";
-    let isUnique = false;
-    while (!isUnique) {
-      const randomSuffix = Math.floor(Math.random() * 9000 + 1000);
-      newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomSuffix}`;
-      isUnique = !invoices.some(inv => inv.invoiceNumber === newInvoiceNumber);
-    }
+    // Format nomor invoice: INV-2024-0001
+    const newInvoiceNumber = `${prefix}${nextSequence.toString().padStart(4, '0')}`;
     
     setCurrentInvoice({
       id,
