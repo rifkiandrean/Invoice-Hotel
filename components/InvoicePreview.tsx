@@ -19,67 +19,90 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
     return val.toLocaleString('id-ID');
   };
 
+  const formatIndonesianDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return new Intl.DateTimeFormat('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }).format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   if (!hotel) return null;
 
   return (
-    <div className="bg-white p-12 shadow-xl border border-slate-100 max-w-4xl mx-auto rounded-xl print:shadow-none print:border-none print:p-0">
-      {/* Hotel Identity - Rata Tengah */}
-      <div className="flex flex-col items-center text-center mb-8 border-b border-slate-100 pb-8">
+    <div id="invoice-content" className="bg-white p-12 shadow-xl border border-slate-100 max-w-4xl mx-auto rounded-xl print:shadow-none print:border-none print:p-0">
+      {/* Hotel Identity - Logo di Kiri, Identitas Rata Tengah, Seluruh Blok Terpusat */}
+      <div className="flex justify-center items-center gap-8 mb-12 border-b-2 border-slate-200 pb-8">
         {hotel.logo && (
-          <img src={hotel.logo} alt="Logo" className="w-20 h-20 rounded-2xl object-cover mb-4 shadow-sm" />
+          <img src={hotel.logo} alt="Logo" className="w-24 h-24 rounded-2xl object-cover shadow-sm border border-slate-50 shrink-0" />
         )}
-        <h1 className="text-3xl font-serif font-bold tracking-tight text-slate-800 mb-2 uppercase">{hotel.name}</h1>
-        <div className="text-sm text-slate-500 max-w-lg leading-relaxed">
-          <p>{hotel.address}</p>
-          <p className="mt-1 font-medium">{hotel.phone} | {hotel.email}</p>
-          {hotel.website !== '-' && <p>{hotel.website}</p>}
-        </div>
-      </div>
-
-      {/* Invoice Meta - Terpisah & 1 Grid */}
-      <div className="flex flex-col items-center text-center mb-12">
-        <h2 className="text-4xl font-serif text-slate-200 uppercase tracking-[0.2em] mb-4">Invoice</h2>
-        <div className="grid grid-cols-1 gap-1 bg-slate-50 px-8 py-4 rounded-2xl border border-slate-100">
-          <p className="text-sm font-bold text-slate-700">
-            NOMOR: <span className="text-indigo-600 font-mono ml-1">{invoice.invoiceNumber}</span>
-          </p>
-          <p className="text-xs text-slate-500 font-medium">
-            TANGGAL PENERBITAN: {invoice.date}
-          </p>
-          <div className="mt-1">
-            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              invoice.status === 'paid' ? 'bg-green-100 text-green-600' : 
-              invoice.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
-            }`}>
-              STATUS: {invoice.status}
-            </span>
+        <div className="text-center">
+          <h1 className="text-3xl font-serif font-bold tracking-tight text-slate-800 mb-2 uppercase">{hotel.name}</h1>
+          <div className="text-sm text-slate-500 leading-relaxed max-w-lg">
+            <p className="font-medium text-slate-600">{hotel.address}</p>
+            <p className="mt-1">{hotel.phone} • {hotel.email}</p>
+            {hotel.website !== '-' && <p className="text-indigo-600">{hotel.website}</p>}
           </div>
         </div>
       </div>
 
       {/* Guest & Stay Details */}
       <div className="grid grid-cols-2 gap-12 mb-12">
+        {/* Kolom Kiri: Informasi Tamu dengan Label Eksplisit */}
         <div className="bg-white p-6 rounded-2xl border border-slate-50">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-100 pb-2">Informasi Tamu</h3>
-          <p className="font-bold text-slate-800 text-lg mb-1">{invoice.guest.name}</p>
-          <p className="text-slate-500 text-sm leading-relaxed">{invoice.guest.address}</p>
-          <div className="mt-4 space-y-1">
-            <p className="text-slate-400 text-xs font-medium">KONTAK:</p>
-            <p className="text-slate-600 text-sm">{invoice.guest.phone}</p>
-            <p className="text-slate-600 text-sm">{invoice.guest.email}</p>
+          <div className="grid grid-cols-[80px_1fr] gap-y-3 text-sm">
+            <span className="text-slate-400 font-medium">Nama :</span>
+            <span className="text-slate-800 font-bold">{invoice.guest.name}</span>
+            
+            <span className="text-slate-400 font-medium">Alamat :</span>
+            <span className="text-slate-500 leading-relaxed">{invoice.guest.address}</span>
+            
+            <span className="text-slate-400 font-medium">Kontak :</span>
+            <div className="space-y-0.5">
+              <p className="text-slate-600 font-medium">{invoice.guest.phone}</p>
+              <p className="text-slate-500 text-xs">{invoice.guest.email}</p>
+            </div>
           </div>
         </div>
+
+        {/* Kolom Kanan: Detail Reservasi (Termasuk Nomor & Status) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-50">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-100 pb-2">Detail Reservasi</h3>
           <div className="grid grid-cols-2 gap-y-3 text-sm">
+            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">No. Invoice:</span>
+            <span className="text-indigo-600 font-mono font-bold text-right">{invoice.invoiceNumber}</span>
+            
+            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Status:</span>
+            <div className="text-right">
+              <span className={`inline-block px-3 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
+                invoice.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
+              }`}>
+                {invoice.status}
+              </span>
+            </div>
+
+            <div className="col-span-2 border-t border-slate-50 my-1"></div>
+
             <span className="text-slate-400">Nomor Kamar:</span>
             <span className="text-slate-800 font-bold text-right">{invoice.stay.roomNumber}</span>
+            
             <span className="text-slate-400">Tipe Kamar:</span>
             <span className="text-slate-800 font-medium text-right">{invoice.stay.roomType}</span>
-            <span className="text-slate-400">Check-in:</span>
-            <span className="text-slate-800 font-medium text-right">{invoice.stay.checkIn}</span>
-            <span className="text-slate-400">Check-out:</span>
-            <span className="text-slate-800 font-medium text-right">{invoice.stay.checkOut}</span>
+            
+            <span className="text-slate-400">Kedatangan :</span>
+            <span className="text-slate-800 font-medium text-right">{formatIndonesianDate(invoice.stay.checkIn)}</span>
+            
+            <span className="text-slate-400">Keberangkatan :</span>
+            <span className="text-slate-800 font-medium text-right">{formatIndonesianDate(invoice.stay.checkOut)}</span>
           </div>
         </div>
       </div>
@@ -118,7 +141,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             <tbody className="divide-y divide-slate-50">
               {invoice.payments.map((p) => (
                 <tr key={p.id}>
-                  <td className="py-2 text-xs text-slate-400">{p.date}</td>
+                  <td className="py-2 text-xs text-slate-400">{formatIndonesianDate(p.date)}</td>
                   <td className="py-2 text-xs font-bold text-slate-500 uppercase">{p.method}</td>
                   <td className="py-2 text-sm text-emerald-600 text-right font-medium">- Rp {formatCurrency(p.amount)}</td>
                 </tr>
@@ -131,15 +154,22 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       {/* Summary Section */}
       <div className="flex justify-between items-start pt-8 border-t border-slate-100">
         <div className="w-1/2 pr-12">
-          {invoice.aiGreeting && (
-            <div className="bg-indigo-50/30 p-6 rounded-2xl border border-indigo-50">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
-                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Pesan Layanan Tamu</span>
-              </div>
-              <p className="text-slate-600 italic text-sm leading-relaxed">&ldquo;{invoice.aiGreeting}&rdquo;</p>
+          <div className="bg-indigo-50/30 p-6 rounded-2xl border border-indigo-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Pesan Layanan Tamu</span>
             </div>
-          )}
+            
+            {invoice.aiGreeting && (
+              <p className="text-slate-600 italic text-sm leading-relaxed mb-6">&ldquo;{invoice.aiGreeting}&rdquo;</p>
+            )}
+
+            <div className="pt-4 border-t border-indigo-100/40">
+              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Informasi Rekening Bank:</p>
+              <p className="text-slate-700 font-bold text-xs uppercase">BLUE ORCHID HOSPITAL</p>
+              <p className="text-indigo-600 font-mono text-xs font-bold">BANK MANDIRI : 1770021861510</p>
+            </div>
+          </div>
         </div>
         <div className="w-1/3">
           <div className="space-y-3">
@@ -166,7 +196,34 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </div>
       </div>
 
+      {/* Signature Section */}
+      <div className="mt-16 grid grid-cols-2 gap-20 px-6 relative">
+        <div className="text-center">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-20">Tanda Tangan Tamu</p>
+          <div className="border-b border-slate-200 w-48 mx-auto"></div>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium uppercase tracking-wider">( {invoice.guest.name} )</p>
+        </div>
+        <div className="text-center relative">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-20">Resepsionis / Kasir</p>
+          
+          {/* DIGITAL SIGNATURE AND STAMP */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center">
+            {hotel.signature && (
+               <img src={hotel.signature} alt="Sign" className="absolute w-32 object-contain opacity-90 z-10" />
+            )}
+            {hotel.stamp && (
+               <img src={hotel.stamp} alt="Stamp" className="absolute w-32 object-contain opacity-70 rotate-[-12deg] translate-x-10 -translate-y-4" />
+            )}
+          </div>
+
+          <div className="border-b border-slate-200 w-48 mx-auto"></div>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium uppercase tracking-wider">( {invoice.cashierName || '____________________'} )</p>
+        </div>
+      </div>
+
+      {/* Footer Section */}
       <div className="mt-16 text-center text-slate-300 text-[10px] uppercase tracking-[0.2em]">
+        <p className="mb-4 text-slate-400 font-bold tracking-widest">DITERBITKAN PADA: {formatIndonesianDate(invoice.date)}</p>
         <p className="mb-2">Terima kasih atas kunjungan Anda di {hotel.name}</p>
         <p>Sistem Billing Otomatis • Tanpa Tanda Tangan Fisik Diperlukan</p>
       </div>

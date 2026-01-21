@@ -16,12 +16,23 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
     alert('Pengaturan profil hotel berhasil diperbarui!');
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, [field]: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
         <div className="p-8 border-b border-slate-100 bg-slate-50/50">
           <h2 className="text-2xl font-bold text-slate-800">Profil Hotel & Sinkronisasi</h2>
-          <p className="text-slate-500">Sesuaikan identitas hotel yang akan muncul pada setiap invoice.</p>
+          <p className="text-slate-500">Sesuaikan identitas hotel dan elemen verifikasi invoice.</p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -42,7 +53,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
               <textarea
                 value={formData.address}
                 onChange={(e) => setFormData({...formData, address: e.target.value})}
-                rows={3}
+                rows={2}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 required
               />
@@ -66,6 +77,54 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+              Verifikasi & Branding (PNG Transparan Disarankan)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Logo Hotel</label>
+                  <div className="relative group">
+                    <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 group-hover:border-indigo-300 transition-all">
+                      {formData.logo ? (
+                        <img src={formData.logo} className="w-full h-full object-contain" alt="Logo" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Pilih Logo</span>
+                      )}
+                    </div>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tanda Tangan (PNG)</label>
+                  <div className="relative group">
+                    <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 group-hover:border-indigo-300 transition-all">
+                      {formData.signature ? (
+                        <img src={formData.signature} className="w-full h-full object-contain" alt="Signature" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Pilih TTD</span>
+                      )}
+                    </div>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'signature')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Cap Hotel (PNG)</label>
+                  <div className="relative group">
+                    <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 group-hover:border-indigo-300 transition-all">
+                      {formData.stamp ? (
+                        <img src={formData.stamp} className="w-full h-full object-contain" alt="Stamp" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Pilih Cap</span>
+                      )}
+                    </div>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'stamp')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+               </div>
             </div>
           </div>
 

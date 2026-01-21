@@ -8,7 +8,7 @@ export const HOTEL_INFO = {
   email: 'hotelpangandaranblueorchid@gmail.com',
   website: '-',
   logo: 'https://picsum.photos/id/43/200/200',
-  googleSheetUrl: 'https://script.google.com/macros/s/AKfycbzXKE-7cpn-Yj2sitUhGFUrrZCesbYCpnXwJZzBrNZ4REMT_t8bkSiD6BzQ5F8xtFiz/exec'
+  googleSheetUrl: 'https://script.google.com/macros/s/AKfycby2gezaI6b_ypaqTUFS2_-ZRQoS1oLrANpivemgz5mF97M3VGkwLrSR_opw-VOwpkfo/exec'
 };
 
 export const ROOM_TYPES = [

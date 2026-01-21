@@ -6,6 +6,8 @@ export interface HotelSettings {
   email: string;
   website: string;
   logo: string;
+  signature?: string; // Base64 string for signature
+  stamp?: string;     // Base64 string for hotel stamp
   defaultTaxRate: number;
   googleSheetUrl?: string; // URL dari Google Apps Script Web App
 }
@@ -55,6 +57,7 @@ export interface Invoice {
   notes: string;
   aiGreeting?: string;
   hotelSnap?: HotelSettings;
+  cashierName?: string;
 }
 
 export type ViewMode = 'list' | 'create' | 'view' | 'settings';
