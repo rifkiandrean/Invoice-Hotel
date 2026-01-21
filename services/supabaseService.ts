@@ -45,6 +45,25 @@ export const uploadAsset = async (file: File, settings: HotelSettings, folder: s
   }
 };
 
+export const fetchSettingsFromSupabase = async (settings: HotelSettings): Promise<HotelSettings | null> => {
+  const client = getSupabaseClient(settings);
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('settings')
+      .select('data')
+      .eq('id', 'hotel_profile')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
+    return data ? (data.data as HotelSettings) : null;
+  } catch (err) {
+    console.error('Supabase Settings Fetch Error:', err);
+    return null;
+  }
+};
+
 export const fetchInvoicesFromSupabase = async (settings: HotelSettings): Promise<Invoice[]> => {
   const client = getSupabaseClient(settings);
   if (!client) return [];

@@ -2,7 +2,7 @@
 import React from 'react';
 
 export const HOTEL_INFO = {
-  name: 'BLUE ORCHID FAMILY HOTEL & COTTAGE',
+  name: 'BLUE ORCHID FAMILY HOTEL',
   address: 'Jalan Kalen Buaya No.22 Pantai Barat Pangandaran West Java-Indonesia',
   phone: '+622657500888/+62 813 2400 3413',
   email: 'hotelpangandaranblueorchid@gmail.com',
