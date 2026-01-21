@@ -45,13 +45,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       <div className="relative mb-4">
         <div className="flex items-center justify-between gap-6 pb-4">
           {hotel.logo && (
-            <img src={hotel.logo} alt="Logo" className="w-24 h-24 object-contain shrink-0" />
+            <img src={hotel.logo} alt="Logo" className="w-20 h-20 lg:w-24 lg:h-24 object-contain shrink-0" />
           )}
-          <div className="flex-1 text-center pr-12">
-            <h1 className="text-2xl font-serif font-bold tracking-tight text-slate-800 mb-0.5 uppercase leading-tight">
+          <div className="flex-1 text-center pr-4 lg:pr-12">
+            <h1 className="text-xl lg:text-2xl font-serif font-bold tracking-tight text-slate-800 mb-0.5 uppercase leading-tight">
               {hotel.name}
             </h1>
-            <div className="text-[10px] text-slate-500 leading-relaxed uppercase tracking-wide">
+            <div className="text-[8px] lg:text-[10px] text-slate-500 leading-relaxed uppercase tracking-wide">
               <p className="font-semibold text-slate-600">{hotel.address}</p>
               <p className="mt-0.5">Phone: {hotel.phone} • Email: {hotel.email}</p>
               {hotel.website && hotel.website !== '-' && (
@@ -60,30 +60,26 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             </div>
           </div>
         </div>
-        {/* Double Line Border Style for Kop Surat */}
         <div className="border-b-[2px] border-slate-800 w-full mb-[1px]"></div>
         <div className="border-b-[0.5px] border-slate-800 w-full"></div>
       </div>
 
       {/* Document Title */}
       <div className="text-center mb-6">
-        <h2 className="text-lg font-serif font-bold text-slate-800 tracking-[0.3em] uppercase underline underline-offset-4 decoration-indigo-200">
+        <h2 className="text-base lg:text-lg font-serif font-bold text-slate-800 tracking-[0.3em] uppercase underline underline-offset-4 decoration-indigo-200">
           INVOICE
         </h2>
       </div>
 
       {/* Guest & Stay Details */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Kolom Kiri: Informasi Tamu */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-6">
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
           <h3 className="text-[8px] font-bold uppercase tracking-widest text-indigo-500 mb-2 border-b border-indigo-100 pb-1">Guest</h3>
-          <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[11px]">
+          <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[10px] lg:text-[11px]">
             <span className="text-slate-400 font-medium">Name :</span>
             <span className="text-slate-800 font-bold uppercase">{invoice.guest.name}</span>
-            
             <span className="text-slate-400 font-medium">Address :</span>
             <span className="text-slate-500 leading-tight">{invoice.guest.address || '-'}</span>
-            
             <span className="text-slate-400 font-medium">Contact :</span>
             <div className="space-y-0.5">
               <p className="text-slate-600 font-medium">{invoice.guest.phone || '-'}</p>
@@ -92,16 +88,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           </div>
         </div>
 
-        {/* Kolom Kanan: Detail Reservasi */}
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
           <h3 className="text-[8px] font-bold uppercase tracking-widest text-indigo-500 mb-2 border-b border-indigo-100 pb-1">Stay Details</h3>
-          <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-y-1.5 text-[10px] lg:text-[11px]">
             <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Folio No:</span>
             <span className="text-slate-900 font-mono font-bold text-right">{invoice.invoiceNumber}</span>
-            
             <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Type:</span>
             <span className="text-slate-800 font-bold text-right uppercase">{invoice.stay.guestType || 'FIT'}</span>
-            
             <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Status:</span>
             <div className="text-right">
               <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
@@ -111,15 +104,11 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 {invoice.status}
               </span>
             </div>
-
             <div className="col-span-2 border-t border-slate-200/50 my-0.5"></div>
-
             <span className="text-slate-400">Room No:</span>
             <span className="text-slate-800 font-bold text-right">{invoice.stay.roomNumber}</span>
-            
             <span className="text-slate-400">Arrival :</span>
             <span className="text-slate-800 font-medium text-right">{formatIndonesianDate(invoice.stay.checkIn)}</span>
-            
             <span className="text-slate-400">Departure :</span>
             <span className="text-slate-800 font-medium text-right">{formatIndonesianDate(invoice.stay.checkOut)}</span>
           </div>
@@ -127,8 +116,8 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       </div>
 
       {/* Items Table */}
-      <div className="overflow-hidden rounded-lg border border-slate-200 mb-4 shadow-sm bg-white">
-        <table className="w-full">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 mb-4 shadow-sm bg-white">
+        <table className="w-full min-w-[500px]">
           <thead>
             <tr className="bg-slate-800">
               <th className="py-2 px-6 text-left text-[8px] font-bold uppercase tracking-wider text-white">Description</th>
@@ -152,7 +141,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </table>
       </div>
 
-      {/* Payments History - Compact */}
+      {/* Payments History */}
       {invoice.payments.length > 0 && (
         <div className="mb-4 px-4 py-2 bg-slate-50/30 rounded-lg border border-slate-100">
           <h3 className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1 border-b border-slate-200 pb-0.5">Billing Activity</h3>
@@ -171,9 +160,8 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       )}
 
       {/* Summary Section */}
-      <div className="flex justify-between items-start pt-4 border-t border-slate-200 gap-6">
-        <div className="flex-1">
-          {/* Section Remarks manual tampil jika ada isinya */}
+      <div className="flex flex-col md:flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
+        <div className="flex-1 w-full">
           {invoice.remarks && (
             <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
               <div className="flex items-center gap-2 mb-1.5">
@@ -183,14 +171,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
               <p className="text-slate-600 text-[10px] leading-relaxed font-medium whitespace-pre-wrap">{invoice.remarks}</p>
             </div>
           )}
-
           <div className="bg-slate-50/30 p-4 rounded-xl border border-slate-50">
             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Payment Instructions:</p>
             <p className="text-slate-800 font-bold text-[9px] uppercase leading-tight">{hotel.name}</p>
             <p className="text-indigo-600 font-mono text-[10px] font-bold tracking-tight">BANK MANDIRI : 1770021861510</p>
           </div>
         </div>
-        <div className="w-[200px] shrink-0">
+        <div className="w-full md:w-[200px] shrink-0">
           <div className="space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner">
             <div className="flex justify-between text-slate-500 text-[9px] font-bold uppercase">
               <span>Subtotal:</span>
@@ -209,7 +196,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             <div className="h-px bg-slate-200 my-1.5"></div>
             <div className="flex flex-col items-end">
               <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Balance Due:</span>
-              <span className="text-lg font-serif font-bold text-slate-900">Rp {formatCurrency(balanceDue)}</span>
+              <span className="text-base lg:text-lg font-serif font-bold text-slate-900">Rp {formatCurrency(balanceDue)}</span>
             </div>
           </div>
         </div>
@@ -225,13 +212,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         <div className="text-center relative">
           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-16">Receptionist / Cashier</p>
           
-          {/* DIGITAL SIGNATURE AND STAMP */}
-          <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible">
+          {/* DIGITAL SIGNATURE AND STAMP - Hidden on browser print */}
+          <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
             {hotel.signature && (
-               <img src={hotel.signature} alt="Sign" className="absolute w-28 object-contain opacity-95 z-10 translate-y-2" />
+               <img src={hotel.signature} alt="Sign" className="absolute w-24 lg:w-28 object-contain opacity-95 z-10 translate-y-2" />
             )}
             {hotel.stamp && (
-               <img src={hotel.stamp} alt="Stamp" className="absolute w-28 object-contain opacity-70 rotate-[-15deg] -translate-x-6 -translate-y-2" />
+               <img src={hotel.stamp} alt="Stamp" className="absolute w-24 lg:w-28 object-contain opacity-70 rotate-[-15deg] -translate-x-6 -translate-y-2" />
             )}
           </div>
 

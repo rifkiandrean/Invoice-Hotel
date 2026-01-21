@@ -25,7 +25,6 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('hotelflow_settings');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Merge with HOTEL_INFO to ensure new default credentials like Supabase keys are picked up
       return { ...HOTEL_INFO, ...parsed, defaultTaxRate: parsed.defaultTaxRate ?? TAX_RATE };
     }
     return {
@@ -219,28 +218,29 @@ const App: React.FC = () => {
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       <header className="bg-white border-b border-slate-200 h-14 shrink-0 flex items-center z-50 no-print">
-        <div className="max-w-[1600px] w-full mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-6">
+        <div className="max-w-[1600px] w-full mx-auto px-4 lg:px-6 flex justify-between items-center">
+          <div className="flex items-center gap-2 lg:gap-6">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewMode('list')}>
-              <div className="bg-indigo-600 p-1.5 rounded-lg">
+              <div className="bg-indigo-600 p-1.5 rounded-lg shrink-0">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
               </div>
-              <h1 className="text-lg font-bold text-slate-900">HotelFlow</h1>
+              <h1 className="text-base lg:text-lg font-bold text-slate-900 hidden xs:block">HotelFlow</h1>
             </div>
-            <nav className="flex items-center gap-1">
-              <button onClick={() => setViewMode('list')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Beranda</button>
-              <button onClick={() => setViewMode('settings')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
+            <nav className="flex items-center gap-0.5 lg:gap-1">
+              <button onClick={() => setViewMode('list')} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Beranda</button>
+              <button onClick={() => setViewMode('settings')} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
             </nav>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4">
             {syncStatus !== 'idle' && (
-              <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${syncStatus === 'error' ? 'text-rose-500' : 'text-indigo-500'}`}>
-                {syncStatus === 'syncing' ? 'Syncing Supabase...' : syncStatus === 'success' ? 'Database Connected' : 'Supabase Offline'}
+              <div className={`hidden sm:flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest ${syncStatus === 'error' ? 'text-rose-500' : 'text-indigo-500'}`}>
+                {syncStatus === 'syncing' ? 'Syncing...' : 'Connected'}
               </div>
             )}
-            <button onClick={createNewInvoice} className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">
+            <button onClick={createNewInvoice} className="bg-indigo-600 text-white px-3 lg:px-5 py-2 rounded-xl text-xs lg:text-sm font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1 lg:gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              Buat Invoice
+              <span className="hidden sm:inline">Buat Invoice</span>
+              <span className="sm:hidden">Buat</span>
             </button>
           </div>
         </div>
@@ -248,42 +248,48 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-hidden flex flex-col relative">
         {viewMode === 'list' && (
-          <div className="flex-1 overflow-y-auto p-6 max-w-[1600px] w-full mx-auto animate-fade-in">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-[1600px] w-full mx-auto animate-fade-in">
             <div className="flex justify-between items-end mb-6">
               <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-slate-900">Dashboard Tagihan</h2>
+                <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard</h2>
                 <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
                   <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
               </div>
-              <div className="bg-slate-200 px-4 py-1.5 rounded-xl flex shadow-inner text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {invoices.length} Transaksi
+              <div className="bg-slate-200 px-3 py-1 rounded-lg flex shadow-inner text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                {invoices.length} Items
               </div>
             </div>
             
-            <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+            {/* Desktop Table View (Hidden on mobile) */}
+            <div className="hidden md:block bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
                     <th className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase">ID Invoice</th>
                     <th className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase">Nama Tamu</th>
                     <th className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase text-right">Total Bayar</th>
-                    <th className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase">Status</th>
+                    <th className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase text-center">Status</th>
                     <th className="px-6 py-4 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {invoices.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada riwayat transaksi. Klik "Buat Invoice" untuk memulai.</td></tr>
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada riwayat transaksi.</td></tr>
                   ) : (
                     invoices.map(inv => (
                       <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3 font-mono text-xs text-indigo-600">{inv.invoiceNumber}</td>
-                        <td className="px-6 py-3 font-bold">{inv.guest.name}</td>
-                        <td className="px-6 py-3 text-right font-bold">Rp {formatCurrency(calculateTotal(inv))}</td>
-                        <td className="px-6 py-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>{inv.status}</span></td>
-                        <td className="px-6 py-3 text-right">
-                          <button onClick={() => { setCurrentInvoice(inv); setViewMode('view'); }} className="text-indigo-600 font-bold text-xs hover:underline">Lihat</button>
+                        <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inv.invoiceNumber}</td>
+                        <td className="px-6 py-4 font-bold text-slate-700">{inv.guest.name}</td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-900">Rp {formatCurrency(calculateTotal(inv))}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
+                            inv.status === 'cancelled' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                          }`}>{inv.status}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => { setCurrentInvoice(inv); setViewMode('view'); }} className="text-indigo-600 font-bold text-xs hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-all">Lihat</button>
                         </td>
                       </tr>
                     ))
@@ -291,13 +297,47 @@ const App: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View (Visible on mobile only, No sideways scroll) */}
+            <div className="md:hidden space-y-3">
+              {invoices.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs italic">
+                  Belum ada riwayat transaksi.
+                </div>
+              ) : (
+                invoices.map(inv => (
+                  <div 
+                    key={inv.id} 
+                    onClick={() => { setCurrentInvoice(inv); setViewMode('view'); }}
+                    className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm active:scale-[0.98] transition-all"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <span className="text-[10px] font-mono text-indigo-600 font-bold block mb-0.5 tracking-tight">{inv.invoiceNumber}</span>
+                        <h4 className="font-bold text-slate-900 text-sm leading-tight line-clamp-1">{inv.guest.name}</h4>
+                      </div>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider ml-2 ${
+                        inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
+                        inv.status === 'cancelled' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {inv.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-50">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Tagihan</div>
+                      <div className="text-sm font-bold text-slate-900">Rp {formatCurrency(calculateTotal(inv))}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
         {viewMode === 'create' && currentInvoice && (
-          <div className="flex-1 flex overflow-hidden p-4 gap-4 max-w-[1600px] w-full mx-auto animate-fade-in">
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              <div className="flex gap-4 shrink-0">
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-3 lg:p-4 gap-4 max-w-[1600px] w-full mx-auto animate-fade-in overflow-y-auto lg:overflow-hidden">
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
+              <div className="flex flex-col md:flex-row gap-4 shrink-0">
                 <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">Identitas Tamu</h3>
                   <div className="grid grid-cols-2 gap-3">
@@ -305,11 +345,11 @@ const App: React.FC = () => {
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Nama Lengkap</label>
                       <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-bold uppercase" value={currentInvoice.guest.name} onChange={e => setCurrentInvoice({...currentInvoice, guest: {...currentInvoice.guest, name: e.target.value.toUpperCase()}})} />
                     </div>
-                    <div>
+                    <div className="col-span-2 sm:col-span-1">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Telepon / WA</label>
                       <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" value={currentInvoice.guest.phone} onChange={e => setCurrentInvoice({...currentInvoice, guest: {...currentInvoice.guest, phone: e.target.value}})} />
                     </div>
-                    <div>
+                    <div className="col-span-2 sm:col-span-1">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Email</label>
                       <input type="email" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" value={currentInvoice.guest.email} onChange={e => setCurrentInvoice({...currentInvoice, guest: {...currentInvoice.guest, email: e.target.value}})} />
                     </div>
@@ -345,19 +385,19 @@ const App: React.FC = () => {
                     </div>
                     <div className="col-span-4"></div>
                     <div className="col-span-6">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Kedatangan</label>
+                      <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Check In</label>
                       <input type="date" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" value={currentInvoice.stay.checkIn} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, checkIn: e.target.value}})} />
                     </div>
                     <div className="col-span-6">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Keberangkatan</label>
+                      <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Check Out</label>
                       <input type="date" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" value={currentInvoice.stay.checkOut} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, checkOut: e.target.value}})} />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl flex-1 flex flex-col overflow-hidden shadow-sm min-h-0">
-                <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="bg-white border border-slate-200 rounded-2xl flex-1 flex flex-col overflow-hidden shadow-sm min-h-[300px] lg:min-h-0">
+                <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                   <h3 className="text-[10px] font-bold text-slate-500 uppercase">Inventaris Layanan</h3>
                   <button onClick={() => { const id = Math.random().toString(36).substr(2,9); setCurrentInvoice({...currentInvoice!, items: [...currentInvoice!.items, {id, description:'', quantity:1, nights:1, unitPrice:0, total:0}]}) }} className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded-lg transition-all">+ Item</button>
                 </div>
@@ -366,8 +406,8 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl h-32 flex flex-col overflow-hidden shadow-sm shrink-0">
-                <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="bg-white border border-slate-200 rounded-2xl h-40 flex flex-col overflow-hidden shadow-sm shrink-0">
+                <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                   <h3 className="text-[10px] font-bold text-slate-500 uppercase">Pembayaran</h3>
                   <button onClick={() => { const id = Math.random().toString(36).substr(2,9); setCurrentInvoice({...currentInvoice!, payments: [...currentInvoice!.payments, {id, date: new Date().toISOString().split('T')[0], method: PAYMENT_METHODS[0], amount:0}]}) }} className="text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 px-3 py-1 rounded-lg transition-all">+ Bayar</button>
                 </div>
@@ -377,10 +417,10 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-80 flex flex-col gap-4">
-              <div className="bg-slate-900 rounded-3xl p-6 text-white flex-1 flex flex-col justify-between shadow-xl">
+            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+              <div className="bg-slate-900 rounded-2xl lg:rounded-3xl p-6 text-white flex-1 flex flex-col justify-between shadow-xl min-h-[400px]">
                 <div className="overflow-y-auto custom-scrollbar flex-1 pr-1">
-                  <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest text-center mb-6">Ringkasan</h3>
+                  <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest text-center mb-6">Ringkasan Tagihan</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span>Rp {formatCurrency(calculateSubtotal(currentInvoice))}</span></div>
                     <div className="flex justify-between text-xs text-slate-400">
@@ -409,9 +449,9 @@ const App: React.FC = () => {
                           className="text-[8px] font-bold text-indigo-400 hover:text-white transition-all disabled:opacity-50 flex items-center gap-1"
                         >
                           {isGeneratingNote ? (
-                            <><span className="animate-spin text-xs">↻</span> Generating...</>
+                            <><span className="animate-spin text-xs">↻</span>...</>
                           ) : (
-                            <>✨ Generate AI Note</>
+                            <>✨ AI Note</>
                           )}
                         </button>
                       </div>
@@ -419,24 +459,24 @@ const App: React.FC = () => {
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-slate-300 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px] resize-none" 
                         value={currentInvoice.remarks || ''} 
                         onChange={e => setCurrentInvoice({...currentInvoice!, remarks: e.target.value})}
-                        placeholder="Isi catatan manual atau gunakan AI..."
+                        placeholder="Isi catatan atau gunakan AI..."
                       />
                     </div>
 
                     <div className="text-center pb-4">
                       <p className="text-[9px] font-bold text-indigo-400 uppercase mb-1">Total Akhir</p>
-                      <h4 className="text-2xl font-serif font-bold">Rp {formatCurrency(calculateTotal(currentInvoice))}</h4>
+                      <h4 className="text-xl lg:text-2xl font-serif font-bold">Rp {formatCurrency(calculateTotal(currentInvoice))}</h4>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4 pt-4 border-t border-white/10">
+                <div className="space-y-4 pt-4 border-t border-white/10 shrink-0">
                   <div className="grid grid-cols-3 gap-1">
                     {(['draft', 'paid', 'cancelled'] as const).map(s => (
                       <button key={s} onClick={() => setCurrentInvoice({...currentInvoice!, status: s})} className={`py-1.5 rounded-lg text-[8px] font-bold uppercase ${currentInvoice!.status === s ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-500'}`}>{s}</button>
                     ))}
                   </div>
                   <button onClick={handleSaveInvoice} className="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95">
-                    Save to Dashboard
+                    Save Dashboard
                   </button>
                   <button onClick={() => setViewMode('list')} className="w-full text-center text-slate-500 text-[10px] font-bold uppercase py-2">Batal</button>
                 </div>
@@ -447,18 +487,22 @@ const App: React.FC = () => {
 
         {viewMode === 'view' && currentInvoice && (
           <div className="flex-1 flex flex-col overflow-hidden animate-fade-in">
-            <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center no-print">
-              <button onClick={() => setViewMode('list')} className="text-slate-500 font-bold text-xs flex items-center gap-2 hover:text-slate-900">Kembali</button>
+            <div className="p-3 lg:p-4 bg-white border-b border-slate-200 flex flex-wrap gap-2 justify-between items-center no-print">
+              <button onClick={() => setViewMode('list')} className="text-slate-500 font-bold text-xs flex items-center gap-2 hover:text-slate-900">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Kembali
+              </button>
               <div className="flex gap-2">
-                <button onClick={() => setViewMode('create')} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold">Edit</button>
-                <button onClick={() => window.print()} className="bg-slate-500 text-white px-4 py-2 rounded-xl text-xs font-bold">Print</button>
-                <button onClick={downloadPDF} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                <button onClick={() => setViewMode('create')} className="px-3 py-2 border border-slate-200 rounded-xl text-[10px] lg:text-xs font-bold">Edit</button>
+                <button onClick={() => window.print()} className="bg-slate-500 text-white px-3 py-2 rounded-xl text-[10px] lg:text-xs font-bold">Print</button>
+                <button onClick={downloadPDF} className="bg-slate-900 text-white px-4 lg:px-6 py-2 rounded-xl text-[10px] lg:text-xs font-bold flex items-center gap-2">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  Download PDF
+                  <span className="hidden xs:inline">Download PDF</span>
+                  <span className="xs:hidden">PDF</span>
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 print:bg-white print:p-0">
+            <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0">
               <div className="flex justify-center">
                 <InvoicePreview invoice={currentInvoice} settings={settings} />
               </div>
@@ -467,7 +511,7 @@ const App: React.FC = () => {
         )}
 
         {viewMode === 'settings' && (
-          <div className="flex-1 overflow-y-auto p-6 animate-fade-in">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in">
             <SettingsPage settings={settings} onSave={handleSaveSettings} />
           </div>
         )}

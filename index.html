@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>HotelFlow - Modern Hotel Billing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -11,6 +11,7 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
       }
       .font-serif {
         font-family: 'Playfair Display', serif;
@@ -19,7 +20,6 @@
       /* A4 Dimensions Helper */
       .page-a4 {
         width: 210mm;
-        /* Menggunakan nilai sedikit di bawah 297mm untuk mencegah bug halaman kosong di html2pdf */
         min-height: 296.5mm; 
         margin: 0 auto;
         background: white;
@@ -30,13 +30,9 @@
       /* Custom Animations */
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideInUp { from { transform: translateY(1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      @keyframes slideInRight { from { transform: translateX(2rem); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-      @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
+      
       .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
       .animate-slide-up { animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-      .animate-slide-right { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-      .animate-zoom-in { animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
       @media print {
         @page {
@@ -51,9 +47,6 @@
         .no-print {
           display: none !important;
         }
-        .print-only {
-          display: block !important;
-        }
         .page-a4 {
           width: 100%;
           margin: 0;
@@ -62,19 +55,29 @@
           border-radius: 0 !important;
           min-height: auto; 
         }
-        .avoid-break {
-          page-break-inside: avoid;
+        /* Custom class to hide signature/stamp specifically for physical print */
+        .hide-on-physical-print {
+          display: none !important;
         }
       }
 
-      /* Scrollbar styling */
-      ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #f1f5f9; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      /* Mobile UI Helpers */
+      @media (max-width: 1024px) {
+        .page-a4 {
+          width: 95vw;
+          min-height: auto;
+          aspect-ratio: 1 / 1.414;
+          padding: 5mm !important;
+          font-size: 0.8em;
+        }
+      }
+
+      /* Custom scrollbar */
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 
-    <!-- Polyfill for process.env to prevent ReferenceError in browser -->
     <script>
       window.process = window.process || { env: { API_KEY: "" } };
     </script>
@@ -92,9 +95,8 @@
     }
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-900">
+  <body class="bg-slate-50 text-slate-900 overflow-x-hidden">
     <div id="root"></div>
-    <!-- Entry point script -->
     <script type="module" src="index.tsx"></script>
   </body>
 </html>
