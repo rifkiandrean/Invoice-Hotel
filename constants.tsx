@@ -20,6 +20,16 @@ export const ROOM_TYPES = [
   'Cottage'
 ];
 
+export const GUEST_TYPES = [
+  'FIT',
+  'GOVERNMENT',
+  'CORPORATE',
+  'OTA',
+  'GROUP',
+  'WALK-IN',
+  'COMPLIMENTARY'
+];
+
 export const ROOM_DESCRIPTIONS = [
   'Standar Room',
   'Deluxe Room',

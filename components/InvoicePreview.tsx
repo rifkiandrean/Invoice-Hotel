@@ -76,7 +76,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Kolom Kiri: Informasi Tamu */}
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-          <h3 className="text-[8px] font-bold uppercase tracking-widest text-indigo-500 mb-2 border-b border-indigo-100 pb-1">Guest Particulars</h3>
+          <h3 className="text-[8px] font-bold uppercase tracking-widest text-indigo-500 mb-2 border-b border-indigo-100 pb-1">Guest</h3>
           <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[11px]">
             <span className="text-slate-400 font-medium">Name :</span>
             <span className="text-slate-800 font-bold uppercase">{invoice.guest.name}</span>
@@ -98,6 +98,9 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
             <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Folio No:</span>
             <span className="text-slate-900 font-mono font-bold text-right">{invoice.invoiceNumber}</span>
+            
+            <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Type:</span>
+            <span className="text-slate-800 font-bold text-right uppercase">{invoice.stay.guestType || 'FIT'}</span>
             
             <span className="text-slate-400 font-semibold text-[8px] uppercase tracking-wider">Status:</span>
             <div className="text-right">

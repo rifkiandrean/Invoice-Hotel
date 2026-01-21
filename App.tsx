@@ -5,12 +5,12 @@ import { InvoicePreview } from './components/InvoicePreview';
 import { InvoiceItemRow } from './components/InvoiceItemRow';
 import { PaymentRow } from './components/PaymentRow';
 import { SettingsPage } from './components/SettingsPage';
-import { ROOM_TYPES, PAYMENT_METHODS, HOTEL_INFO, TAX_RATE } from './constants';
+import { ROOM_TYPES, GUEST_TYPES, PAYMENT_METHODS, HOTEL_INFO, TAX_RATE } from './constants';
 
 declare var html2pdf: any;
 
 const INITIAL_GUEST = { name: '', email: '', phone: '', address: '' };
-const INITIAL_STAY = { roomNumber: '', roomType: ROOM_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
+const INITIAL_STAY = { roomNumber: '', roomType: ROOM_TYPES[0], guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
 
 const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -65,9 +65,12 @@ const App: React.FC = () => {
       const cloudData = await response.json();
       if (Array.isArray(cloudData)) {
         setInvoices(prev => {
+          // Gabungkan data cloud dan lokal berdasarkan ID unik untuk mencegah duplikasi
           const combined = [...cloudData];
           prev.forEach(localInv => {
-            if (!combined.find(c => c.invoiceNumber === localInv.invoiceNumber)) {
+            // Jika ID lokal tidak ada di data cloud, tambahkan ke list
+            const alreadyExists = combined.some(c => c.id === localInv.id || c.invoiceNumber === localInv.invoiceNumber);
+            if (!alreadyExists) {
               combined.push(localInv);
             }
           });
@@ -121,6 +124,7 @@ const App: React.FC = () => {
   const handleSaveInvoice = async () => {
     if (!currentInvoice) return;
 
+    // Cek duplikasi nomor invoice pada entitas YANG BERBEDA (ID berbeda)
     const isDuplicateNumber = invoices.some(inv => 
       inv.invoiceNumber === currentInvoice.invoiceNumber && inv.id !== currentInvoice.id
     );
@@ -133,8 +137,18 @@ const App: React.FC = () => {
     const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
     
     setInvoices(prev => {
-      const exists = prev.find(i => i.id === finalizedInvoice.id);
-      return exists ? prev.map(i => i.id === finalizedInvoice.id ? finalizedInvoice : i) : [finalizedInvoice, ...prev];
+      // Cari index invoice lama dengan ID yang sama
+      const index = prev.findIndex(i => i.id === finalizedInvoice.id);
+      
+      if (index !== -1) {
+        // Jika ditemukan, update data lama (mencegah duplikasi saat edit)
+        const newList = [...prev];
+        newList[index] = finalizedInvoice;
+        return newList;
+      } else {
+        // Jika baru, tambahkan ke paling atas
+        return [finalizedInvoice, ...prev];
+      }
     });
 
     setCurrentInvoice(finalizedInvoice);
@@ -329,13 +343,22 @@ const App: React.FC = () => {
                         {ROOM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-6">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Jenis Tamu</label>
+                      <select className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white font-medium" value={currentInvoice.stay.guestType} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, guestType: e.target.value}})}>
+                        {GUEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-4">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Nomor RM</label>
                       <input type="text" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center font-bold" value={currentInvoice.stay.roomNumber} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, roomNumber: e.target.value}})} />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-4">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Pax</label>
                       <input type="number" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center" value={currentInvoice.stay.guestsCount} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, guestsCount: Number(e.target.value)}})} />
+                    </div>
+                    <div className="col-span-4">
+                       {/* Space placeholder or additional field if needed */}
                     </div>
                     <div className="col-span-6">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Kedatangan</label>

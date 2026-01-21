@@ -38,6 +38,7 @@ export interface GuestInfo {
 export interface StayDetails {
   roomNumber: string;
   roomType: string;
+  guestType: string; // New property: FIT, GOVERNMENT, etc.
   checkIn: string;
   checkOut: string;
   guestsCount: number;
