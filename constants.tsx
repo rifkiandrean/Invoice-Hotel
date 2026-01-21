@@ -7,8 +7,9 @@ export const HOTEL_INFO = {
   phone: '+622657500888/+62 813 2400 3413',
   email: 'hotelpangandaranblueorchid@gmail.com',
   website: '-',
-  logo: './logo.png', // Menggunakan path folder lokal
-  googleSheetUrl: 'https://script.google.com/macros/s/AKfycby2gezaI6b_ypaqTUFS2_-ZRQoS1oLrANpivemgz5mF97M3VGkwLrSR_opw-VOwpkfo/exec'
+  logo: './logo.png',
+  supabaseUrl: 'https://jdnbyrxburhwuzwqmjki.supabase.co',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkbmJ5cnhidXJod3V6d3FtamtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMDIyMDEsImV4cCI6MjA4NDU3ODIwMX0.tDhRWoKJr-E8kEV4zE9-AIBKa9_sih8_bWTlGaplNLQ'
 };
 
 export const ROOM_TYPES = [
@@ -55,4 +56,4 @@ export const PAYMENT_METHODS = [
   'Travel Agent'
 ];
 
-export const TAX_RATE = 0; // Pajak dinonaktifkan (0%)
+export const TAX_RATE = 0;

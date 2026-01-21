@@ -6,6 +6,8 @@ import { InvoiceItemRow } from './components/InvoiceItemRow';
 import { PaymentRow } from './components/PaymentRow';
 import { SettingsPage } from './components/SettingsPage';
 import { ROOM_TYPES, GUEST_TYPES, PAYMENT_METHODS, HOTEL_INFO, TAX_RATE } from './constants';
+import { fetchInvoicesFromSupabase, upsertInvoiceToSupabase, saveSettingsToSupabase } from './services/supabaseService';
+import { generatePersonalizedNote } from './services/geminiService';
 
 declare var html2pdf: any;
 
@@ -17,104 +19,86 @@ const App: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   
-  // Initialize settings from localStorage or fallback to HOTEL_INFO
   const [settings, setSettings] = useState<HotelSettings>(() => {
     const saved = localStorage.getItem('hotelflow_settings');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge with HOTEL_INFO to ensure new default credentials like Supabase keys are picked up
+      return { ...HOTEL_INFO, ...parsed, defaultTaxRate: parsed.defaultTaxRate ?? TAX_RATE };
+    }
     return {
       ...HOTEL_INFO,
       defaultTaxRate: TAX_RATE,
-      googleSheetUrl: HOTEL_INFO.googleSheetUrl
     };
   });
 
-  // Initial load for invoices
   useEffect(() => {
     const savedInvoices = localStorage.getItem('hotelflow_invoices');
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
   }, []);
 
-  // Automatic persistence for invoices
   useEffect(() => {
     localStorage.setItem('hotelflow_invoices', JSON.stringify(invoices));
   }, [invoices]);
 
-  // Automatic persistence for settings
   useEffect(() => {
     localStorage.setItem('hotelflow_settings', JSON.stringify(settings));
   }, [settings]);
 
-  const fetchFromCloud = useCallback(async () => {
-    if (!settings.googleSheetUrl || !settings.googleSheetUrl.includes('script.google.com')) return;
+  const syncFromSupabase = useCallback(async () => {
+    if (!settings.supabaseUrl || !settings.supabaseAnonKey) return;
     
     setSyncStatus('syncing');
     try {
-      const url = new URL(settings.googleSheetUrl);
-      url.searchParams.set('type', 'fetch');
-      url.searchParams.set('cacheBust', Date.now().toString());
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        mode: 'cors',
-        headers: { 'Accept': 'application/json' }
-      });
-
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const cloudData = await response.json();
-      if (Array.isArray(cloudData)) {
-        setInvoices(prev => {
-          // Gabungkan data cloud dan lokal berdasarkan ID unik untuk mencegah duplikasi
-          const combined = [...cloudData];
-          prev.forEach(localInv => {
-            // Jika ID lokal tidak ada di data cloud, tambahkan ke list
-            const alreadyExists = combined.some(c => c.id === localInv.id || c.invoiceNumber === localInv.invoiceNumber);
-            if (!alreadyExists) {
-              combined.push(localInv);
-            }
-          });
-          return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const cloudInvoices = await fetchInvoicesFromSupabase(settings);
+      setInvoices(prev => {
+        const combined = [...cloudInvoices];
+        prev.forEach(localInv => {
+          const alreadyExists = combined.some(c => c.id === localInv.id);
+          if (!alreadyExists) {
+            combined.push(localInv);
+          }
         });
-        setSyncStatus('success');
-      }
+        return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+      setSyncStatus('success');
     } catch (error) {
-      console.error("Cloud Fetch Error:", error);
+      console.error("Supabase Sync Error:", error);
       setSyncStatus('error');
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
-  }, [settings.googleSheetUrl]);
+  }, [settings]);
 
   useEffect(() => {
     if (viewMode === 'list') {
-      fetchFromCloud();
+      syncFromSupabase();
     }
-  }, [viewMode, fetchFromCloud]);
+  }, [viewMode, syncFromSupabase]);
 
-  const syncToCloud = useCallback(async (type: 'settings' | 'invoice', payload: any) => {
-    if (!settings.googleSheetUrl || !settings.googleSheetUrl.includes('script.google.com')) return;
-    
-    setSyncStatus('syncing');
-    try {
-      await fetch(settings.googleSheetUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ type, payload })
-      });
-      
-      setSyncStatus('success');
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    } catch (error) {
-      console.error("Cloud Sync Error:", error);
-      setSyncStatus('error');
-    }
-  }, [settings.googleSheetUrl]);
-
-  const handleSaveSettings = (newSettings: HotelSettings) => {
+  const handleSaveSettings = async (newSettings: HotelSettings) => {
     setSettings(newSettings);
-    syncToCloud('settings', newSettings);
+    if (newSettings.supabaseUrl && newSettings.supabaseAnonKey) {
+      setSyncStatus('syncing');
+      const success = await saveSettingsToSupabase(newSettings);
+      setSyncStatus(success ? 'success' : 'error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
+  const handleGenerateAINote = async () => {
+    if (!currentInvoice) return;
+    setIsGeneratingNote(true);
+    try {
+      const note = await generatePersonalizedNote(currentInvoice);
+      setCurrentInvoice({ ...currentInvoice, remarks: note });
+    } catch (error) {
+      console.error("AI Generation failed", error);
+    } finally {
+      setIsGeneratingNote(false);
+    }
   };
 
   const calculateSubtotal = (inv: Invoice) => inv.items.reduce((sum, item) => sum + (item.quantity * item.nights * item.unitPrice), 0);
@@ -124,36 +108,37 @@ const App: React.FC = () => {
   const handleSaveInvoice = async () => {
     if (!currentInvoice) return;
 
-    // Cek duplikasi nomor invoice pada entitas YANG BERBEDA (ID berbeda)
     const isDuplicateNumber = invoices.some(inv => 
       inv.invoiceNumber === currentInvoice.invoiceNumber && inv.id !== currentInvoice.id
     );
 
     if (isDuplicateNumber) {
-      alert(`Peringatan: Nomor Invoice ${currentInvoice.invoiceNumber} sudah digunakan oleh transaksi lain.`);
+      alert(`Peringatan: Nomor Invoice ${currentInvoice.invoiceNumber} sudah digunakan.`);
       return;
     }
 
     const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
     
     setInvoices(prev => {
-      // Cari index invoice lama dengan ID yang sama
       const index = prev.findIndex(i => i.id === finalizedInvoice.id);
-      
       if (index !== -1) {
-        // Jika ditemukan, update data lama (mencegah duplikasi saat edit)
         const newList = [...prev];
         newList[index] = finalizedInvoice;
         return newList;
       } else {
-        // Jika baru, tambahkan ke paling atas
         return [finalizedInvoice, ...prev];
       }
     });
 
     setCurrentInvoice(finalizedInvoice);
     setViewMode('view');
-    syncToCloud('invoice', finalizedInvoice);
+
+    if (settings.supabaseUrl && settings.supabaseAnonKey) {
+      setSyncStatus('syncing');
+      const success = await upsertInvoiceToSupabase(finalizedInvoice, settings);
+      setSyncStatus(success ? 'success' : 'error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
   };
 
   const downloadPDF = () => {
@@ -171,7 +156,8 @@ const App: React.FC = () => {
         letterRendering: true,
         backgroundColor: '#FFFFFF'
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
     html2pdf().set(opt).from(element).save();
   };
@@ -249,7 +235,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             {syncStatus !== 'idle' && (
               <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${syncStatus === 'error' ? 'text-rose-500' : 'text-indigo-500'}`}>
-                {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'success' ? 'Cloud Synced' : 'Sync Failed'}
+                {syncStatus === 'syncing' ? 'Syncing Supabase...' : syncStatus === 'success' ? 'Database Connected' : 'Supabase Offline'}
               </div>
             )}
             <button onClick={createNewInvoice} className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">
@@ -266,12 +252,12 @@ const App: React.FC = () => {
             <div className="flex justify-between items-end mb-6">
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold text-slate-900">Dashboard Tagihan</h2>
-                <button onClick={fetchFromCloud} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
+                <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
                   <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
               </div>
               <div className="bg-slate-200 px-4 py-1.5 rounded-xl flex shadow-inner text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {invoices.length} Transaksi Tersimpan
+                {invoices.length} Transaksi
               </div>
             </div>
             
@@ -357,9 +343,7 @@ const App: React.FC = () => {
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Pax</label>
                       <input type="number" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center" value={currentInvoice.stay.guestsCount} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, guestsCount: Number(e.target.value)}})} />
                     </div>
-                    <div className="col-span-4">
-                       {/* Space placeholder or additional field if needed */}
-                    </div>
+                    <div className="col-span-4"></div>
                     <div className="col-span-6">
                       <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Kedatangan</label>
                       <input type="date" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" value={currentInvoice.stay.checkIn} onChange={e => setCurrentInvoice({...currentInvoice, stay: {...currentInvoice.stay, checkIn: e.target.value}})} />
@@ -417,12 +401,25 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="mb-4">
-                      <label className="text-[9px] font-bold text-indigo-300 uppercase block mb-1">Catatan Khusus (Remark)</label>
+                      <div className="flex justify-between items-end mb-1">
+                        <label className="text-[9px] font-bold text-indigo-300 uppercase block">Catatan Khusus (Remark)</label>
+                        <button 
+                          onClick={handleGenerateAINote} 
+                          disabled={isGeneratingNote || !currentInvoice.guest.name}
+                          className="text-[8px] font-bold text-indigo-400 hover:text-white transition-all disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {isGeneratingNote ? (
+                            <><span className="animate-spin text-xs">↻</span> Generating...</>
+                          ) : (
+                            <>✨ Generate AI Note</>
+                          )}
+                        </button>
+                      </div>
                       <textarea 
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-slate-300 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px] resize-none" 
                         value={currentInvoice.remarks || ''} 
                         onChange={e => setCurrentInvoice({...currentInvoice!, remarks: e.target.value})}
-                        placeholder="Isi catatan manual di sini..."
+                        placeholder="Isi catatan manual atau gunakan AI..."
                       />
                     </div>
 

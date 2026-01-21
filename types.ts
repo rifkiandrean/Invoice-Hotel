@@ -9,7 +9,8 @@ export interface HotelSettings {
   signature?: string; // Base64 string for signature
   stamp?: string;     // Base64 string for hotel stamp
   defaultTaxRate: number;
-  googleSheetUrl?: string; // URL dari Google Apps Script Web App
+  supabaseUrl?: string; // Supabase Project URL
+  supabaseAnonKey?: string; // Supabase Anonymous Key
 }
 
 export interface InvoiceItem {
@@ -38,7 +39,7 @@ export interface GuestInfo {
 export interface StayDetails {
   roomNumber: string;
   roomType: string;
-  guestType: string; // New property: FIT, GOVERNMENT, etc.
+  guestType: string; 
   checkIn: string;
   checkOut: string;
   guestsCount: number;
