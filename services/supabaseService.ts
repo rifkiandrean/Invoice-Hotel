@@ -1,17 +1,13 @@
 
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
-import { Invoice, HotelSettings } from '../types';
+import { Invoice, HotelSettings, UserProfile, UserRole } from '../types';
 import { HOTEL_INFO } from '../constants';
 
-// Initialize with defaults from constants for Auth purposes
-// We track the active URL locally because supabase.supabaseUrl is protected and cannot be accessed directly in newer versions of the SDK.
 let activeUrl = HOTEL_INFO.supabaseUrl;
 let supabase: SupabaseClient = createClient(activeUrl, HOTEL_INFO.supabaseAnonKey);
 
 export const getSupabaseClient = (settings?: HotelSettings) => {
   if (settings?.supabaseUrl && settings?.supabaseAnonKey) {
-    // Fix: Accessing protected property 'supabaseUrl' directly is not allowed. 
-    // We use a local variable 'activeUrl' to track the current configuration.
     if (activeUrl !== settings.supabaseUrl) {
       activeUrl = settings.supabaseUrl;
       supabase = createClient(activeUrl, settings.supabaseAnonKey);
@@ -20,28 +16,77 @@ export const getSupabaseClient = (settings?: HotelSettings) => {
   return supabase;
 };
 
-// --- Auth Functions ---
-export const signUp = async (email: string, pass: string) => {
-  return await supabase.auth.signUp({ email, password: pass });
-};
-
+// --- Auth & Profile Functions ---
 export const signIn = async (email: string, pass: string) => {
   return await supabase.auth.signInWithPassword({ email, password: pass });
+};
+
+export const signUpNewUser = async (email: string, pass: string, role: UserRole) => {
+  // Note: SignUp logs the user in automatically on standard Supabase config.
+  // In a real management system, this would be an admin edge function.
+  const { data, error } = await supabase.auth.signUp({ 
+    email, 
+    password: pass,
+    options: {
+      data: { role } // Store in metadata
+    }
+  });
+  
+  if (error) return { error };
+  
+  // Create profile entry
+  if (data.user) {
+    await upsertProfile({
+      id: data.user.id,
+      email: email,
+      role: role,
+      updated_at: new Date().toISOString()
+    });
+  }
+  
+  return { data };
 };
 
 export const signOut = async () => {
   return await supabase.auth.signOut();
 };
 
-export const getSession = async () => {
-  const { data } = await supabase.auth.getSession();
-  return data.session;
-};
-
 export const onAuthStateChange = (callback: (session: Session | null) => void) => {
   return supabase.auth.onAuthStateChange((_event, session) => {
     callback(session);
   });
+};
+
+export const fetchProfiles = async (): Promise<UserProfile[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("Fetch Profiles Error:", err);
+    return [];
+  }
+};
+
+export const upsertProfile = async (profile: UserProfile) => {
+  return await supabase
+    .from('profiles')
+    .upsert(profile, { onConflict: 'id' });
+};
+
+export const getCurrentUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  
+  if (error) return null;
+  return data;
 };
 
 // --- Storage & Data Functions ---

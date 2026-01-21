@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings } from './types';
+import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } from './types';
 import { InvoicePreview } from './components/InvoicePreview';
 import { InvoiceItemRow } from './components/InvoiceItemRow';
 import { PaymentRow } from './components/PaymentRow';
@@ -13,7 +13,8 @@ import {
   saveSettingsToSupabase, 
   fetchSettingsFromSupabase,
   onAuthStateChange,
-  signOut
+  signOut,
+  getCurrentUserProfile
 } from './services/supabaseService';
 import { generatePersonalizedNote } from './services/geminiService';
 
@@ -22,8 +23,11 @@ declare var html2pdf: any;
 const INITIAL_GUEST = { name: '', email: '', phone: '', address: '' };
 const INITIAL_STAY = { roomNumber: '', roomType: ROOM_TYPES[0], guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
 
+const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [activeTab, setActiveTab] = useState(0); 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -31,19 +35,46 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   
+  // PIN Protection State
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  // Filtering States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const [settings, setSettings] = useState<HotelSettings>(() => {
     const saved = localStorage.getItem('hotelflow_settings');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...HOTEL_INFO, ...parsed, defaultTaxRate: parsed.defaultTaxRate ?? TAX_RATE };
+      return { ...HOTEL_INFO, ...parsed, defaultTaxRate: parsed.defaultTaxRate ?? TAX_RATE, settingsPin: parsed.settingsPin ?? "1234" };
     }
-    return { ...HOTEL_INFO, defaultTaxRate: TAX_RATE };
+    return { ...HOTEL_INFO, defaultTaxRate: TAX_RATE, settingsPin: "1234" };
   });
 
   // Auth Listener
   useEffect(() => {
-    const { data: { subscription } } = onAuthStateChange((newSession) => {
+    const { data: { subscription } } = onAuthStateChange(async (newSession) => {
       setSession(newSession);
+      if (newSession?.user) {
+        const profile = await getCurrentUserProfile(newSession.user.id);
+        const email = newSession.user.email?.toLowerCase();
+        
+        if (email && SUPER_ADMIN_EMAILS.includes(email)) {
+          setUserProfile({ 
+            id: newSession.user.id, 
+            email: newSession.user.email, 
+            role: 'super-admin' 
+          });
+        } else {
+          setUserProfile(profile);
+        }
+      } else {
+        setUserProfile(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -114,7 +145,15 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (confirm('Apakah Anda yakin ingin keluar?')) {
-      await signOut();
+      try {
+        await signOut();
+        // Force state cleanup for immediate UI response
+        setSession(null);
+        setUserProfile(null);
+        setViewMode('list');
+      } catch (err) {
+        console.error("Error during sign out:", err);
+      }
     }
   };
 
@@ -144,7 +183,6 @@ const App: React.FC = () => {
     }
   };
 
-  // handleGenerateAINote uses the Gemini API to generate a professional thank you note.
   const handleGenerateAINote = async () => {
     if (!currentInvoice || !currentInvoice.guest.name) return;
     setIsGeneratingNote(true);
@@ -213,6 +251,49 @@ const App: React.FC = () => {
     setViewMode('create');
   };
 
+  // Filter Logic
+  const filteredInvoices = invoices.filter(inv => {
+    const matchesSearch = 
+      inv.guest.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+    
+    const matchesStartDate = !startDate || inv.date >= startDate;
+    const matchesEndDate = !endDate || inv.date <= endDate;
+
+    return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+  });
+
+  // PIN Access Logic
+  const handleSettingsClick = () => {
+    setPinValue('');
+    setPinError(false);
+    setShowPinModal(true);
+  };
+
+  const handlePinSubmit = (val: string) => {
+    const targetPin = settings.settingsPin || "1234";
+    if (val === targetPin) {
+      setShowPinModal(false);
+      setViewMode('settings');
+    } else {
+      setPinError(true);
+      setPinValue('');
+      setTimeout(() => setPinError(false), 500);
+    }
+  };
+
+  const handlePinDigit = (digit: string) => {
+    const newVal = pinValue + digit;
+    if (newVal.length <= 4) {
+      setPinValue(newVal);
+      if (newVal.length === 4) {
+        setTimeout(() => handlePinSubmit(newVal), 100);
+      }
+    }
+  };
+
   const TABS = [
     { label: 'Tamu', icon: '👤' },
     { label: 'Nginap', icon: '🏨' },
@@ -236,13 +317,21 @@ const App: React.FC = () => {
             </div>
             <nav className="flex items-center gap-0.5 lg:gap-1">
               <button onClick={() => setViewMode('list')} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Beranda</button>
-              <button onClick={() => setViewMode('settings')} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
+              <button onClick={handleSettingsClick} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
             </nav>
           </div>
           
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden md:flex flex-col items-end mr-2">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Active User</span>
+              <div className="flex items-center gap-2">
+                {userProfile?.role && (
+                   <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                     userProfile.role === 'super-admin' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
+                     userProfile.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                   }`}>{userProfile.role.replace('-', ' ')}</span>
+                )}
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Active User</span>
+              </div>
               <span className="text-[10px] text-slate-600 font-bold">{session?.user?.email}</span>
             </div>
             <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Keluar">
@@ -268,7 +357,72 @@ const App: React.FC = () => {
                 </button>
               </div>
               <div className="bg-slate-200 px-3 py-1 rounded-lg flex shadow-inner text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                {invoices.length} Items
+                {filteredInvoices.length} Items
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="md:col-span-5 relative">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Cari Tamu / Invoice</label>
+                  <div className="relative">
+                    <svg className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <input 
+                      type="text" 
+                      placeholder="Cari nama tamu atau nomor invoice..." 
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Filter Status</label>
+                  <select 
+                    className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all bg-white"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Semua Status</option>
+                    <option value="draft">Draft</option>
+                    <option value="paid">Paid (Lunas)</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-4 flex justify-end">
+                   <button 
+                    onClick={() => { setSearchQuery(''); setStatusFilter('all'); setStartDate(''); setEndDate(''); }}
+                    className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2"
+                   >
+                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                     Atur Ulang Filter
+                   </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Dari Tanggal</label>
+                    <input 
+                      type="date" 
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Sampai Tanggal</label>
+                    <input 
+                      type="date" 
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -284,13 +438,13 @@ const App: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {invoices.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada riwayat transaksi.</td></tr>
+                  {filteredInvoices.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada invoice yang sesuai dengan filter.</td></tr>
                   ) : (
-                    invoices.map(inv => (
+                    filteredInvoices.map(inv => (
                       <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => { setCurrentInvoice(inv); setViewMode('view'); }}>
                         <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inv.invoiceNumber}</td>
-                        <td className="px-6 py-4 font-bold text-slate-700">{inv.guest.name}</td>
+                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.guest.name}</td>
                         <td className="px-6 py-4 text-right font-bold text-slate-900">Rp {formatCurrency(calculateTotal(inv))}</td>
                         <td className="px-6 py-4 text-center">
                           <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${
@@ -309,20 +463,20 @@ const App: React.FC = () => {
             </div>
 
             <div className="md:hidden space-y-3">
-              {invoices.map(inv => (
+              {filteredInvoices.map(inv => (
                 <div key={inv.id} onClick={() => { setCurrentInvoice(inv); setViewMode('view'); }} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm active:scale-[0.98] transition-all">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <span className="text-[10px] font-mono text-indigo-600 font-bold block mb-0.5 tracking-tight">{inv.invoiceNumber}</span>
-                      <h4 className="font-bold text-slate-900 text-sm leading-tight line-clamp-1 uppercase">{inv.guest.name}</h4>
+                      <h4 className="font-bold text-slate-900 text-sm leading-tight uppercase">{inv.guest.name}</h4>
                     </div>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider ml-2 ${
+                    <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
                       inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
                       inv.status === 'cancelled' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
                     }`}>{inv.status}</span>
                   </div>
                   <div className="flex justify-between items-center pt-3 border-t border-slate-50">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Tagihan</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase">Total Tagihan</div>
                     <div className="text-sm font-bold text-slate-900">Rp {formatCurrency(calculateTotal(inv))}</div>
                   </div>
                 </div>
@@ -436,14 +590,9 @@ const App: React.FC = () => {
                       {currentInvoice.payments.map(p => <PaymentRow key={p.id} payment={p} onUpdate={handleUpdatePayment} onDelete={id => setCurrentInvoice({...currentInvoice!, payments: currentInvoice!.payments.filter(pay => pay.id !== id)})} />) || <p className="text-center py-4 text-slate-400 text-[10px] italic">Belum ada pembayaran.</p>}
                     </div>
                   </div>
-
-                  <div className={`${activeTab < 4 ? 'flex' : 'hidden'} md:hidden justify-between gap-3 mt-4 mb-20`}>
-                    <button onClick={() => setActiveTab(prev => Math.max(0, prev - 1))} disabled={activeTab === 0} className="flex-1 bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold disabled:opacity-30">Kembali</button>
-                    <button onClick={() => setActiveTab(prev => Math.min(4, prev + 1))} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Lanjut</button>
-                  </div>
                 </div>
 
-                <div className={`${activeTab === 4 ? 'block animate-slide-up' : 'hidden lg:block'} w-full lg:w-80 shrink-0`}>
+                <div className={`${activeTab === 4 ? 'block' : 'hidden lg:block'} w-full lg:w-80 shrink-0`}>
                   <div className="bg-slate-900 rounded-2xl lg:rounded-3xl p-4 lg:p-6 text-white shadow-xl flex flex-col h-full lg:sticky lg:top-0">
                     <div className="flex-1 space-y-3 lg:space-y-4">
                       <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest text-center">Ringkasan Invoice</h3>
@@ -457,7 +606,7 @@ const App: React.FC = () => {
                             <label className="text-[8px] font-bold text-indigo-300 uppercase">Catatan</label>
                             <button onClick={handleGenerateAINote} disabled={isGeneratingNote || !currentInvoice.guest.name} className="text-[8px] font-bold text-indigo-400 hover:text-white flex items-center gap-1 transition-all">{isGeneratingNote ? '...' : '✨ AI'}</button>
                           </div>
-                          <textarea className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-300 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[60px] lg:min-h-[100px] resize-none leading-tight" value={currentInvoice.remarks || ''} onChange={e => setCurrentInvoice({...currentInvoice!, remarks: e.target.value})} placeholder="Catatan tambahan..." />
+                          <textarea className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-300 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[60px] resize-none leading-tight" value={currentInvoice.remarks || ''} onChange={e => setCurrentInvoice({...currentInvoice!, remarks: e.target.value})} placeholder="Catatan tambahan..." />
                         </div>
                         <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-2">
                           <div className="flex justify-between text-[10px] text-slate-400"><span>Subtotal</span><span>Rp {formatCurrency(calculateSubtotal(currentInvoice))}</span></div>
@@ -509,10 +658,63 @@ const App: React.FC = () => {
 
         {viewMode === 'settings' && (
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in">
-            <SettingsPage settings={settings} onSave={handleSaveSettings} />
+            <SettingsPage 
+              settings={settings} 
+              onSave={handleSaveSettings} 
+              currentUserRole={userProfile?.role} 
+            />
           </div>
         )}
       </main>
+
+      {/* PIN Protection Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className={`bg-white rounded-3xl shadow-2xl p-8 w-full max-w-xs text-center border border-white/20 transition-all ${pinError ? 'animate-shake' : 'animate-slide-up'}`}>
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Akses Terbatas</h3>
+            <p className="text-sm text-slate-500 mb-8 font-medium">Masukkan 4 digit PIN untuk membuka Pengaturan</p>
+            
+            <div className="flex justify-center gap-4 mb-8">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${
+                    pinValue.length > i 
+                      ? 'bg-indigo-600 border-indigo-600 scale-125' 
+                      : 'bg-transparent border-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '←'].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (key === 'C') setPinValue('');
+                    else if (key === '←') setPinValue(prev => prev.slice(0, -1));
+                    else handlePinDigit(key.toString());
+                  }}
+                  className="h-14 flex items-center justify-center rounded-2xl text-lg font-bold hover:bg-slate-50 active:bg-slate-100 transition-all text-slate-700"
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              onClick={() => setShowPinModal(false)}
+              className="mt-6 text-xs font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

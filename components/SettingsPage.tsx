@@ -1,16 +1,43 @@
 
-import React, { useState } from 'react';
-import { HotelSettings } from '../types';
-import { uploadAsset } from '../services/supabaseService';
+import React, { useState, useEffect } from 'react';
+import { HotelSettings, UserProfile, UserRole } from '../types';
+import { uploadAsset, fetchProfiles, signUpNewUser, upsertProfile } from '../services/supabaseService';
 
 interface Props {
   settings: HotelSettings;
   onSave: (settings: HotelSettings) => void;
+  currentUserRole?: UserRole;
 }
 
-export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
+const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
+
+export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRole }) => {
+  const [activeTab, setActiveTab] = useState<'profile' | 'accounts'>('profile');
   const [formData, setFormData] = React.useState<HotelSettings>(settings);
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  
+  // Account Management States
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'receptionist' as UserRole });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'accounts' && (currentUserRole === 'admin' || currentUserRole === 'super-admin')) {
+      loadProfiles();
+    }
+  }, [activeTab, currentUserRole]);
+
+  const loadProfiles = async () => {
+    const data = await fetchProfiles();
+    // Mark super admins in the fetched list too for UI consistency
+    const processedData = data.map(p => {
+      if (SUPER_ADMIN_EMAILS.includes(p.email.toLowerCase())) {
+        return { ...p, role: 'super-admin' as UserRole };
+      }
+      return p;
+    });
+    setProfiles(processedData);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,22 +45,44 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
     alert('Pengaturan berhasil diperbarui!');
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.email || !newUser.password) return;
+    setIsCreatingUser(true);
+    try {
+      const { error } = await signUpNewUser(newUser.email, newUser.password, newUser.role);
+      if (error) throw error;
+      alert('Akun baru berhasil didaftarkan!');
+      setNewUser({ email: '', password: '', role: 'receptionist' });
+      loadProfiles();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const handleChangeRole = async (userId: string, newRole: UserRole) => {
+    if (!confirm(`Ubah role pengguna ini menjadi ${newRole}?`)) return;
+    const profile = profiles.find(p => p.id === userId);
+    if (profile) {
+      await upsertProfile({ ...profile, role: newRole });
+      loadProfiles();
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validasi konfigurasi Supabase sebelum upload
       if (!formData.supabaseUrl || !formData.supabaseAnonKey) {
-        alert('Mohon lengkapi konfigurasi Supabase Project URL dan Anon Key terlebih dahulu sebelum mengunggah gambar.');
+        alert('Mohon lengkapi konfigurasi Supabase terlebih dahulu.');
         return;
       }
-
       setIsUploading(field);
-      
       try {
         const publicUrl = await uploadAsset(file, formData, field);
         if (publicUrl) {
           if (field === 'logo') {
-            // Set logo dan otomatis update stamp jika logo diubah
             setFormData({ ...formData, logo: publicUrl, stamp: publicUrl });
           } else {
             setFormData({ ...formData, [field]: publicUrl });
@@ -47,181 +96,264 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave }) => {
     }
   };
 
+  const canManageAccounts = currentUserRole === 'admin' || currentUserRole === 'super-admin';
+
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
-        <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-          <h2 className="text-2xl font-bold text-slate-800">Profil Hotel & Sinkronisasi Cloud</h2>
-          <p className="text-slate-500">Sesuaikan identitas hotel. Semua aset (Logo/TTD) akan disimpan secara permanen di Supabase Storage.</p>
+        <div className="flex border-b border-slate-100">
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-5 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'profile' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+          >
+            Profil Hotel
+          </button>
+          {canManageAccounts && (
+            <button 
+              onClick={() => setActiveTab('accounts')}
+              className={`flex-1 py-5 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'accounts' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+            >
+              Manajemen Akun
+            </button>
+          )}
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-full">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Nama Hotel</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold"
-                required
-              />
+
+        {activeTab === 'profile' ? (
+          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="col-span-full">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nama Hotel</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold"
+                  required
+                />
+              </div>
+
+              <div className="col-span-full">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Alamat Lengkap</label>
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  rows={2}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nomor Telepon</label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Email Bisnis</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
+
+              {canManageAccounts && (
+                <div className="col-span-full border-t border-slate-100 pt-6">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    Keamanan Akses Settings
+                  </h3>
+                  <div className="max-w-xs">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">PIN Akses (4 Digit)</label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      placeholder="1234"
+                      value={formData.settingsPin || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setFormData({...formData, settingsPin: val});
+                      }}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-all font-mono font-bold tracking-[0.5em]"
+                    />
+                    <p className="mt-2 text-[10px] text-slate-400 italic">PIN ini digunakan untuk membuka halaman Pengaturan.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="col-span-full">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Alamat Lengkap</label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-                rows={2}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Nomor Telepon</label>
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Email Bisnis</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-slate-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <div className="pt-8 border-t border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 Media & Aset Digital
               </h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               <div className="col-span-1">
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Logo Hotel</label>
-                  <div className="relative group">
-                    <div className="w-full h-32 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center overflow-hidden bg-indigo-50/30 group-hover:border-indigo-400 transition-all">
-                      {isUploading === 'logo' ? (
-                        <div className="flex flex-col items-center">
-                          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent animate-spin rounded-full mb-2"></div>
-                          <span className="text-indigo-500 font-bold text-[10px]">Uploading...</span>
-                        </div>
-                      ) : formData.logo ? (
-                        <img src={formData.logo} className="w-full h-full object-contain" alt="Logo" />
-                      ) : (
-                        <div className="text-center p-4">
-                          <svg className="w-8 h-8 text-indigo-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Klik Unggah</span>
-                        </div>
-                      )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="col-span-1">
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Logo Hotel</label>
+                    <div className="relative group">
+                      <div className="w-full h-32 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center overflow-hidden bg-indigo-50/30 group-hover:border-indigo-400 transition-all">
+                        {isUploading === 'logo' ? (
+                          <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+                        ) : formData.logo ? (
+                          <img src={formData.logo} className="w-full h-full object-contain" alt="Logo" />
+                        ) : (
+                          <span className="text-[10px] text-indigo-400 font-bold uppercase">Unggah</span>
+                        )}
+                      </div>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isUploading !== null} />
                     </div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleFileUpload(e, 'logo')} 
-                      className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" 
-                      disabled={isUploading !== null} 
-                    />
-                  </div>
-                  <p className="mt-2 text-[9px] text-slate-400 italic">Format: PNG/JPG (Cloud Storage)</p>
-               </div>
-               
-               <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tanda Tangan</label>
-                  <div className="relative group">
-                    <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 group-hover:border-indigo-300 transition-all">
-                      {isUploading === 'signature' ? (
-                        <div className="animate-pulse text-indigo-500 font-bold text-xs">Uploading...</div>
-                      ) : formData.signature ? (
-                        <img src={formData.signature} className="w-full h-full object-contain" alt="Signature" />
-                      ) : (
-                        <div className="text-center">
-                          <svg className="w-6 h-6 text-slate-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Unggah TTD</span>
-                        </div>
-                      )}
+                 </div>
+                 
+                 <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tanda Tangan</label>
+                    <div className="relative group">
+                      <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 group-hover:border-indigo-300 transition-all">
+                        {isUploading === 'signature' ? (
+                          <div className="animate-pulse text-indigo-500 font-bold text-xs">...</div>
+                        ) : formData.signature ? (
+                          <img src={formData.signature} className="w-full h-full object-contain" alt="Signature" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 uppercase font-bold">Unggah</span>
+                        )}
+                      </div>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'signature')} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isUploading !== null} />
                     </div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleFileUpload(e, 'signature')} 
-                      className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" 
-                      disabled={isUploading !== null} 
-                    />
-                  </div>
-               </div>
+                 </div>
 
-               <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Pratinjau Cap</label>
-                  <div className="relative">
-                    <div className="w-full h-32 border border-slate-100 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50 shadow-inner">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Pratinjau Cap</label>
+                    <div className="w-full h-32 border border-slate-100 rounded-2xl flex items-center justify-center overflow-hidden bg-slate-50">
                       {formData.stamp ? (
                         <img src={formData.stamp} className="w-full h-full object-contain opacity-60 grayscale-[0.5] rotate-[-5deg]" alt="Stamp" />
                       ) : (
                         <span className="text-[10px] text-slate-300 italic">Otomatis dari Logo</span>
                       )}
                     </div>
-                  </div>
+                 </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 flex justify-end">
+              <button type="submit" className="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95">Update Profil Hotel</button>
+            </div>
+          </form>
+        ) : (
+          <div className="p-8 space-y-8 animate-fade-in">
+            <section>
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                Tambah Akun Staf Baru
+              </h3>
+              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email Staf</label>
+                  <input 
+                    type="email" 
+                    value={newUser.email} 
+                    onChange={e => setNewUser({...newUser, email: e.target.value})}
+                    placeholder="email@hotel.com"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password</label>
+                  <input 
+                    type="password" 
+                    value={newUser.password} 
+                    onChange={e => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role Jabatan</label>
+                  <select 
+                    value={newUser.role} 
+                    onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="receptionist">Receptionist</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button 
+                    type="submit" 
+                    disabled={isCreatingUser}
+                    className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isCreatingUser ? 'Mendaftarkan...' : 'Daftar Akun'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section>
+               <h3 className="text-lg font-bold text-slate-800 mb-4">Daftar Akun Terdaftar</h3>
+               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm text-[11px] text-slate-400 mb-2 italic">
+                  * Akun Super Admin tidak dapat dimodifikasi perannya.
                </div>
-            </div>
+               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase">User Email</th>
+                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase">Current Role</th>
+                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {profiles.map(profile => {
+                        const isSuperAdmin = profile.role === 'super-admin';
+                        return (
+                          <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-medium text-slate-700">{profile.email}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                isSuperAdmin ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                profile.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 
+                                profile.role === 'manager' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {profile.role.replace('-', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <select 
+                                onChange={(e) => handleChangeRole(profile.id, e.target.value as UserRole)}
+                                value={profile.role}
+                                disabled={isSuperAdmin}
+                                className={`text-[10px] font-bold border border-slate-200 rounded px-2 py-1 outline-none bg-white ${isSuperAdmin ? 'opacity-50 cursor-not-allowed text-slate-300' : 'text-slate-500'}`}
+                              >
+                                {isSuperAdmin ? (
+                                   <option value="super-admin">Super Admin (Locked)</option>
+                                ) : (
+                                  <>
+                                    <option value="receptionist">Make Receptionist</option>
+                                    <option value="manager">Make Manager</option>
+                                    <option value="admin">Make Admin</option>
+                                  </>
+                                )}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+               </div>
+            </section>
           </div>
-
-          <div className="pt-8 border-t border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z"/></svg>
-              Konfigurasi Supabase
-            </h3>
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-4 shadow-inner">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-widest">Supabase Project URL</label>
-                <input
-                  type="url"
-                  value={formData.supabaseUrl || ''}
-                  onChange={(e) => setFormData({...formData, supabaseUrl: e.target.value})}
-                  placeholder="https://your-project.supabase.co"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-widest">Supabase Anon Key</label>
-                <input
-                  type="password"
-                  value={formData.supabaseAnonKey || ''}
-                  onChange={(e) => setFormData({...formData, supabaseAnonKey: e.target.value})}
-                  placeholder="your-anon-key"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white text-sm"
-                />
-              </div>
-              <div className="flex gap-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-                <svg className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p className="text-[10px] text-indigo-600 leading-relaxed font-semibold uppercase tracking-wider">
-                  Data ini wajib diisi agar sistem dapat mengunggah media ke bucket 'hotel-assets'.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-100 flex justify-end">
-            <button
-              type="submit"
-              className="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
-            >
-              Update Pengaturan
-            </button>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );

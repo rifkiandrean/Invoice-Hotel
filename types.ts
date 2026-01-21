@@ -1,4 +1,14 @@
 
+export type UserRole = 'super-admin' | 'admin' | 'manager' | 'receptionist';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+  fullName?: string;
+  updated_at?: string;
+}
+
 export interface HotelSettings {
   name: string;
   address: string;
@@ -6,11 +16,12 @@ export interface HotelSettings {
   email: string;
   website: string;
   logo: string;
-  signature?: string; // Base64 string for signature
-  stamp?: string;     // Base64 string for hotel stamp
+  signature?: string;
+  stamp?: string;
   defaultTaxRate: number;
-  supabaseUrl?: string; // Supabase Project URL
-  supabaseAnonKey?: string; // Supabase Anonymous Key
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+  settingsPin?: string;
 }
 
 export interface InvoiceItem {
