@@ -55,7 +55,7 @@ export interface Invoice {
   discount: number;
   status: 'draft' | 'paid' | 'cancelled';
   notes: string;
-  aiGreeting?: string;
+  remarks?: string;
   hotelSnap?: HotelSettings;
   cashierName?: string;
 }

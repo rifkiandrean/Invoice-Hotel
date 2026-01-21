@@ -6,7 +6,6 @@ import { InvoiceItemRow } from './components/InvoiceItemRow';
 import { PaymentRow } from './components/PaymentRow';
 import { SettingsPage } from './components/SettingsPage';
 import { ROOM_TYPES, PAYMENT_METHODS, HOTEL_INFO, TAX_RATE } from './constants';
-import { generatePersonalizedNote } from './services/geminiService';
 
 declare var html2pdf: any;
 
@@ -17,7 +16,6 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
-  const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   
   // Initialize settings from localStorage or fallback to HOTEL_INFO
@@ -123,7 +121,6 @@ const App: React.FC = () => {
   const handleSaveInvoice = async () => {
     if (!currentInvoice) return;
 
-    // VALIDASI DUPLIKAT NOMOR INVOICE
     const isDuplicateNumber = invoices.some(inv => 
       inv.invoiceNumber === currentInvoice.invoiceNumber && inv.id !== currentInvoice.id
     );
@@ -133,17 +130,13 @@ const App: React.FC = () => {
       return;
     }
 
-    setIsGeneratingNote(true);
-    const aiNote = await generatePersonalizedNote(currentInvoice);
-    // Snapshot settings (including base64 logo) into the invoice for permanent local record
-    const finalizedInvoice = { ...currentInvoice, aiGreeting: aiNote, hotelSnap: settings };
+    const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
     
     setInvoices(prev => {
       const exists = prev.find(i => i.id === finalizedInvoice.id);
       return exists ? prev.map(i => i.id === finalizedInvoice.id ? finalizedInvoice : i) : [finalizedInvoice, ...prev];
     });
 
-    setIsGeneratingNote(false);
     setCurrentInvoice(finalizedInvoice);
     setViewMode('view');
     syncToCloud('invoice', finalizedInvoice);
@@ -152,11 +145,18 @@ const App: React.FC = () => {
   const downloadPDF = () => {
     if (!currentInvoice) return;
     const element = document.getElementById('invoice-content');
+    if (!element) return;
+    
     const opt = {
-      margin: 10,
-      filename: `Invoice_${currentInvoice.invoiceNumber}_${currentInvoice.guest.name}.pdf`,
+      margin: 0,
+      filename: `Invoice_${currentInvoice.invoiceNumber}_${currentInvoice.guest.name.replace(/\s+/g, '_')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
+      html2canvas: { 
+        scale: 3, 
+        useCORS: true,
+        letterRendering: true,
+        backgroundColor: '#FFFFFF'
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
@@ -184,7 +184,6 @@ const App: React.FC = () => {
     const currentYear = new Date().getFullYear();
     const prefix = `INV-${currentYear}-`;
 
-    // Filter invoice yang memiliki prefix tahun ini dan ambil angka urutannya
     const sequenceNumbers = invoices
       .filter(inv => inv.invoiceNumber.startsWith(prefix))
       .map(inv => {
@@ -194,11 +193,8 @@ const App: React.FC = () => {
       })
       .filter(num => !isNaN(num));
 
-    // Ambil angka tertinggi, atau mulai dari 0 jika belum ada
     const maxSequence = sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) : 0;
     const nextSequence = maxSequence + 1;
-    
-    // Format nomor invoice: INV-2024-0001
     const newInvoiceNumber = `${prefix}${nextSequence.toString().padStart(4, '0')}`;
     
     setCurrentInvoice({
@@ -213,6 +209,7 @@ const App: React.FC = () => {
       discount: 0,
       status: 'draft',
       notes: '',
+      remarks: '', 
       hotelSnap: settings,
       cashierName: lastCashier || ''
     });
@@ -375,7 +372,7 @@ const App: React.FC = () => {
 
             <div className="w-80 flex flex-col gap-4">
               <div className="bg-slate-900 rounded-3xl p-6 text-white flex-1 flex flex-col justify-between shadow-xl">
-                <div>
+                <div className="overflow-y-auto custom-scrollbar flex-1 pr-1">
                   <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest text-center mb-6">Ringkasan</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span>Rp {formatCurrency(calculateSubtotal(currentInvoice))}</span></div>
@@ -396,20 +393,30 @@ const App: React.FC = () => {
                       />
                     </div>
 
-                    <div className="text-center">
-                      <p className="text-[9px] font-bold text-indigo-400 uppercase mb-1">Total</p>
+                    <div className="mb-4">
+                      <label className="text-[9px] font-bold text-indigo-300 uppercase block mb-1">Catatan Khusus (Remark)</label>
+                      <textarea 
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-slate-300 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px] resize-none" 
+                        value={currentInvoice.remarks || ''} 
+                        onChange={e => setCurrentInvoice({...currentInvoice!, remarks: e.target.value})}
+                        placeholder="Isi catatan manual di sini..."
+                      />
+                    </div>
+
+                    <div className="text-center pb-4">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase mb-1">Total Akhir</p>
                       <h4 className="text-2xl font-serif font-bold">Rp {formatCurrency(calculateTotal(currentInvoice))}</h4>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-4 pt-4 border-t border-white/10">
                   <div className="grid grid-cols-3 gap-1">
                     {(['draft', 'paid', 'cancelled'] as const).map(s => (
                       <button key={s} onClick={() => setCurrentInvoice({...currentInvoice!, status: s})} className={`py-1.5 rounded-lg text-[8px] font-bold uppercase ${currentInvoice!.status === s ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-500'}`}>{s}</button>
                     ))}
                   </div>
-                  <button onClick={handleSaveInvoice} disabled={isGeneratingNote} className="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all">
-                    {isGeneratingNote ? 'AI Processing...' : 'Save to Cloud'}
+                  <button onClick={handleSaveInvoice} className="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95">
+                    Save to Dashboard
                   </button>
                   <button onClick={() => setViewMode('list')} className="w-full text-center text-slate-500 text-[10px] font-bold uppercase py-2">Batal</button>
                 </div>
@@ -432,7 +439,9 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 print:bg-white print:p-0">
-              <InvoicePreview invoice={currentInvoice} settings={settings} />
+              <div className="flex justify-center">
+                <InvoicePreview invoice={currentInvoice} settings={settings} />
+              </div>
             </div>
           </div>
         )}
