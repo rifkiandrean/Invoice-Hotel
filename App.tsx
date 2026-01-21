@@ -19,25 +19,33 @@ const App: React.FC = () => {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [settings, setSettings] = useState<HotelSettings>({
-    ...HOTEL_INFO,
-    defaultTaxRate: TAX_RATE,
-    googleSheetUrl: HOTEL_INFO.googleSheetUrl
+  
+  // Initialize settings from localStorage or fallback to HOTEL_INFO
+  const [settings, setSettings] = useState<HotelSettings>(() => {
+    const saved = localStorage.getItem('hotelflow_settings');
+    if (saved) return JSON.parse(saved);
+    return {
+      ...HOTEL_INFO,
+      defaultTaxRate: TAX_RATE,
+      googleSheetUrl: HOTEL_INFO.googleSheetUrl
+    };
   });
 
+  // Initial load for invoices
   useEffect(() => {
     const savedInvoices = localStorage.getItem('hotelflow_invoices');
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
-    
-    const savedSettings = localStorage.getItem('hotelflow_settings');
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
   }, []);
 
+  // Automatic persistence for invoices
   useEffect(() => {
-    if (invoices.length > 0) {
-      localStorage.setItem('hotelflow_invoices', JSON.stringify(invoices));
-    }
+    localStorage.setItem('hotelflow_invoices', JSON.stringify(invoices));
   }, [invoices]);
+
+  // Automatic persistence for settings
+  useEffect(() => {
+    localStorage.setItem('hotelflow_settings', JSON.stringify(settings));
+  }, [settings]);
 
   const fetchFromCloud = useCallback(async () => {
     if (!settings.googleSheetUrl || !settings.googleSheetUrl.includes('script.google.com')) return;
@@ -105,7 +113,6 @@ const App: React.FC = () => {
 
   const handleSaveSettings = (newSettings: HotelSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('hotelflow_settings', JSON.stringify(newSettings));
     syncToCloud('settings', newSettings);
   };
 
@@ -122,12 +129,13 @@ const App: React.FC = () => {
     );
 
     if (isDuplicateNumber) {
-      alert(`Peringatan: Nomor Invoice ${currentInvoice.invoiceNumber} sudah digunakan oleh transaksi lain. Mohon kembali ke dashboard atau buat invoice baru.`);
+      alert(`Peringatan: Nomor Invoice ${currentInvoice.invoiceNumber} sudah digunakan oleh transaksi lain.`);
       return;
     }
 
     setIsGeneratingNote(true);
     const aiNote = await generatePersonalizedNote(currentInvoice);
+    // Snapshot settings (including base64 logo) into the invoice for permanent local record
     const finalizedInvoice = { ...currentInvoice, aiGreeting: aiNote, hotelSnap: settings };
     
     setInvoices(prev => {
@@ -174,7 +182,6 @@ const App: React.FC = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const lastCashier = invoices.length > 0 ? invoices[0].cashierName : '';
     
-    // GENERASI NOMOR INVOICE UNIK
     let newInvoiceNumber = "";
     let isUnique = false;
     while (!isUnique) {

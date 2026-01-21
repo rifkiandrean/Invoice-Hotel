@@ -212,7 +212,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                <img src={hotel.signature} alt="Sign" className="absolute w-32 object-contain opacity-90 z-10" />
             )}
             {hotel.stamp && (
-               <img src={hotel.stamp} alt="Stamp" className="absolute w-32 object-contain opacity-70 rotate-[-12deg] translate-x-10 -translate-y-4" />
+               <img src={hotel.stamp} alt="Stamp" className="absolute w-32 object-contain opacity-70 rotate-[-12deg] -translate-x-2 -translate-y-4" />
             )}
           </div>
 

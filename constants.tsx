@@ -7,7 +7,7 @@ export const HOTEL_INFO = {
   phone: '+622657500888/+62 813 2400 3413',
   email: 'hotelpangandaranblueorchid@gmail.com',
   website: '-',
-  logo: 'https://picsum.photos/id/43/200/200',
+  logo: './logo.png', // Menggunakan path folder lokal
   googleSheetUrl: 'https://script.google.com/macros/s/AKfycby2gezaI6b_ypaqTUFS2_-ZRQoS1oLrANpivemgz5mF97M3VGkwLrSR_opw-VOwpkfo/exec'
 };
 
