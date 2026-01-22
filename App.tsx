@@ -46,13 +46,11 @@ const App: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const [settings, setSettings] = useState<HotelSettings>(() => {
-    const saved = localStorage.getItem('hotelflow_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...HOTEL_INFO, ...parsed, defaultTaxRate: parsed.defaultTaxRate ?? TAX_RATE, settingsPin: parsed.settingsPin ?? "1234" };
-    }
-    return { ...HOTEL_INFO, defaultTaxRate: TAX_RATE, settingsPin: "1234" };
+  // Source of Truth: Initialize with Constants, overwrite with Cloud data on mount
+  const [settings, setSettings] = useState<HotelSettings>({
+    ...HOTEL_INFO,
+    defaultTaxRate: TAX_RATE,
+    settingsPin: "1234"
   });
 
   // Auth Listener
@@ -74,6 +72,7 @@ const App: React.FC = () => {
         }
       } else {
         setUserProfile(null);
+        setViewMode('list');
       }
     });
     return () => subscription.unsubscribe();
@@ -81,46 +80,40 @@ const App: React.FC = () => {
 
   const loadCloudSettings = useCallback(async () => {
     if (!session) return;
+    setSyncStatus('syncing');
     try {
       const cloudSettings = await fetchSettingsFromSupabase(settings);
       if (cloudSettings) {
-        setSettings(prev => ({ ...prev, ...cloudSettings }));
+        setSettings(prev => ({ 
+          ...prev, 
+          ...cloudSettings,
+          // Ensure crucial DB config stays from the hardcoded constants if cloud data is corrupted
+          supabaseUrl: HOTEL_INFO.supabaseUrl,
+          supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
+        }));
+        setSyncStatus('success');
       }
     } catch (error) {
       console.error("Failed to load cloud settings:", error);
+      setSyncStatus('error');
+    } finally {
+      setTimeout(() => setSyncStatus('idle'), 2000);
     }
-  }, [session, settings.supabaseUrl]);
+  }, [session]);
 
   useEffect(() => {
-    if (session) loadCloudSettings();
+    if (session) {
+      loadCloudSettings();
+    }
   }, [session, loadCloudSettings]);
 
-  useEffect(() => {
-    const savedInvoices = localStorage.getItem('hotelflow_invoices');
-    if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('hotelflow_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
-  useEffect(() => {
-    localStorage.setItem('hotelflow_settings', JSON.stringify(settings));
-  }, [settings]);
-
+  // Sync Invoices from Cloud
   const syncFromSupabase = useCallback(async () => {
     if (!session) return;
     setSyncStatus('syncing');
     try {
       const cloudInvoices = await fetchInvoicesFromSupabase(settings);
-      setInvoices(prev => {
-        const combined = [...cloudInvoices];
-        prev.forEach(localInv => {
-          const alreadyExists = combined.some(c => c.id === localInv.id);
-          if (!alreadyExists) combined.push(localInv);
-        });
-        return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      });
+      setInvoices(cloudInvoices);
       setSyncStatus('success');
     } catch (error) {
       setSyncStatus('error');
@@ -130,15 +123,25 @@ const App: React.FC = () => {
   }, [session, settings]);
 
   useEffect(() => {
-    if (viewMode === 'list' && session) syncFromSupabase();
+    if (viewMode === 'list' && session) {
+      syncFromSupabase();
+    }
   }, [viewMode, syncFromSupabase, session]);
 
   const handleSaveSettings = async (newSettings: HotelSettings) => {
+    // Immediate UI update for responsiveness
     setSettings(newSettings);
+    
     if (session) {
       setSyncStatus('syncing');
       const success = await saveSettingsToSupabase(newSettings);
-      setSyncStatus(success ? 'success' : 'error');
+      if (success) {
+        setSyncStatus('success');
+      } else {
+        setSyncStatus('error');
+        // Rollback on error? Re-fetch settings
+        loadCloudSettings();
+      }
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
   };
@@ -147,7 +150,6 @@ const App: React.FC = () => {
     if (confirm('Apakah Anda yakin ingin keluar?')) {
       try {
         await signOut();
-        // Force state cleanup for immediate UI response
         setSession(null);
         setUserProfile(null);
         setViewMode('list');
@@ -164,6 +166,8 @@ const App: React.FC = () => {
   const handleSaveInvoice = async () => {
     if (!currentInvoice) return;
     const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
+    
+    // Add to local list first for responsiveness
     setInvoices(prev => {
       const index = prev.findIndex(i => i.id === finalizedInvoice.id);
       if (index !== -1) {
@@ -173,8 +177,10 @@ const App: React.FC = () => {
       }
       return [finalizedInvoice, ...prev];
     });
+
     setCurrentInvoice(finalizedInvoice);
     setViewMode('view');
+
     if (session) {
       setSyncStatus('syncing');
       const success = await upsertInvoiceToSupabase(finalizedInvoice, settings);
@@ -251,7 +257,6 @@ const App: React.FC = () => {
     setViewMode('create');
   };
 
-  // Filter Logic
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = 
       inv.guest.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -265,7 +270,6 @@ const App: React.FC = () => {
     return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
-  // PIN Access Logic
   const handleSettingsClick = () => {
     setPinValue('');
     setPinError(false);
@@ -322,6 +326,15 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2 lg:gap-4">
+            {syncStatus !== 'idle' && (
+              <div className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${
+                syncStatus === 'syncing' ? 'bg-slate-100 text-slate-500' :
+                syncStatus === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}>
+                {syncStatus === 'syncing' && <div className="w-2 h-2 border border-slate-400 border-t-transparent animate-spin rounded-full"></div>}
+                {syncStatus}
+              </div>
+            )}
             <div className="hidden md:flex flex-col items-end mr-2">
               <div className="flex items-center gap-2">
                 {userProfile?.role && (
@@ -330,9 +343,8 @@ const App: React.FC = () => {
                      userProfile.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
                    }`}>{userProfile.role.replace('-', ' ')}</span>
                 )}
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Active User</span>
+                <span className="text-[10px] text-slate-600 font-bold">{session?.user?.email}</span>
               </div>
-              <span className="text-[10px] text-slate-600 font-bold">{session?.user?.email}</span>
             </div>
             <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Keluar">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
