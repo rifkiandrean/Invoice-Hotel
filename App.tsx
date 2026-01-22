@@ -207,11 +207,20 @@ const App: React.FC = () => {
     if (!currentInvoice) return;
     const element = document.getElementById('invoice-content');
     if (!element) return;
+    
+    // Improved PDF options to ensure the A4 is captured correctly on mobile
     const opt = {
       margin: 0,
       filename: `Invoice_${currentInvoice.invoiceNumber}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#FFFFFF' },
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { 
+        scale: 4, // Higher scale for extreme clarity
+        useCORS: true, 
+        letterRendering: true, 
+        backgroundColor: '#FFFFFF',
+        width: 793.7, // Exact 210mm in pixels at 96 DPI * 1.0 (internal size)
+        windowWidth: 793.7 // Force a fixed capture window width to avoid mobile scaling
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
@@ -372,7 +381,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3">
                 <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard</h2>
                 <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
-                  <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
                 </button>
               </div>
               <div className="bg-slate-200 px-3 py-1 rounded-lg flex shadow-inner text-[9px] font-bold text-slate-500 uppercase tracking-widest">
@@ -691,8 +700,8 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0">
-              <div className="flex justify-center">
+            <div className="flex-1 overflow-y-auto print:bg-white print:p-0">
+              <div className="invoice-preview-container">
                 <InvoicePreview invoice={currentInvoice} settings={settings} />
               </div>
             </div>

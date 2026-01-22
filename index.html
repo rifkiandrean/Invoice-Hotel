@@ -17,7 +17,7 @@
         font-family: 'Playfair Display', serif;
       }
       
-      /* A4 Dimensions Helper */
+      /* Base A4 Dimensions - Fixed for all devices to ensure correct capture */
       .page-a4 {
         width: 210mm;
         min-height: 296.5mm; 
@@ -25,6 +25,15 @@
         background: white;
         position: relative;
         box-sizing: border-box;
+      }
+
+      /* Container to handle mobile display without shrinking the internal page-a4 */
+      .invoice-preview-container {
+        width: 100%;
+        overflow-x: auto;
+        display: flex;
+        justify-content: center;
+        padding: 1rem;
       }
 
       /* Custom Animations */
@@ -51,7 +60,7 @@
           background: white !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-          color: #000 !important; /* Global print text color */
+          color: #000 !important;
         }
         .no-print {
           display: none !important;
@@ -70,24 +79,20 @@
           color: #000 !important;
         }
         
-        /* Force black text for everything inside the invoice during print */
         #invoice-content, #invoice-content * {
           color: #000 !important;
         }
         
-        /* Exception for table headers text to remain white if background is black */
         #invoice-content thead th {
           color: #fff !important;
         }
 
-        /* Hide digital assets strictly for physical browser print */
         .hide-on-physical-print {
           display: none !important;
           visibility: hidden !important;
           opacity: 0 !important;
         }
         
-        /* Ensure table headers have backgrounds in print */
         thead tr {
           background-color: #000 !important;
           color: white !important;
@@ -95,14 +100,21 @@
         }
       }
 
-      /* Mobile UI Helpers */
+      /* Mobile UI Display Fix - Scales the view but keeps the internal A4 dimensions for capture */
       @media (max-width: 1024px) {
+        .invoice-preview-container {
+          padding: 0.5rem;
+          background-color: #f1f5f9;
+        }
+        
+        /* Instead of resizing the page-a4, we scroll it or scale it in CSS */
+        /* To make it fully visible on mobile screens, we allow horizontal scrolling */
         .page-a4 {
-          width: 95vw;
-          min-height: auto;
-          aspect-ratio: 1 / 1.414;
-          padding: 5mm !important;
-          font-size: 0.8em;
+          /* We DON'T use width: 100% here as it breaks PDF/Print capture */
+          box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+          transform-origin: top center;
+          /* Optional: use a smaller scale if you want it to "fit" better on screen */
+          /* transform: scale(0.45); (Note: this can make text blurry, better to just scroll) */
         }
       }
 
