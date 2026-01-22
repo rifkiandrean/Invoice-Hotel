@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } from './types';
 import { InvoicePreview } from './components/InvoicePreview';
@@ -207,17 +206,19 @@ const App: React.FC = () => {
     const element = document.getElementById('invoice-content');
     if (!element) return;
     
+    // Config to prevent double paging: ensure height is strictly handled and scroll is reset
     const opt = {
       margin: 0,
       filename: `Invoice_${currentInvoice.invoiceNumber}.pdf`,
-      image: { type: 'jpeg', quality: 1.0 },
+      image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
-        scale: 3, 
+        scale: 2, 
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#FFFFFF',
         width: 794, 
-        windowWidth: 794
+        windowWidth: 794,
+        scrollY: 0, // Critical for preventing blank pages due to scroll offset
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };

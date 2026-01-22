@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Invoice, HotelSettings } from '../types';
 
@@ -37,7 +36,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   if (!hotel) return null;
 
   return (
-    <div id="invoice-content" className="page-a4 p-[13mm] shadow-2xl border border-slate-100 flex flex-col print:shadow-none print:border-none print:p-[13mm] relative bg-white overflow-hidden text-black">
+    <div id="invoice-content" className="page-a4 p-[13mm] flex flex-col relative bg-white overflow-hidden text-black">
       {/* Subtle Background Accent */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -translate-y-24 translate-x-24 blur-3xl pointer-events-none print:hidden"></div>
 
