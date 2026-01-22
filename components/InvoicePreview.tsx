@@ -212,7 +212,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         <div className="text-center relative">
           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-16">Receptionist / Cashier</p>
           
-          {/* DIGITAL SIGNATURE AND STAMP - Hidden on browser print */}
+          {/* DIGITAL SIGNATURE AND STAMP - Strictly hidden on browser print via .hide-on-physical-print */}
           <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
             {hotel.signature && (
                <img src={hotel.signature} alt="Sign" className="absolute w-24 lg:w-28 object-contain opacity-95 z-10 translate-y-2" />

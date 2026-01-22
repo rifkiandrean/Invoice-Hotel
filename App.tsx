@@ -154,6 +154,8 @@ const App: React.FC = () => {
 
   const calculateSubtotal = (inv: Invoice) => inv.items.reduce((sum, item) => sum + (item.quantity * item.nights * item.unitPrice), 0);
   const calculateTotal = (inv: Invoice) => calculateSubtotal(inv) - inv.discount;
+  const calculatePayments = (inv: Invoice) => inv.payments.reduce((sum, p) => sum + p.amount, 0);
+  const calculateBalance = (inv: Invoice) => calculateTotal(inv) - calculatePayments(inv);
   const formatCurrency = (val: number) => val.toLocaleString('id-ID');
 
   const handleSaveInvoice = async () => {
@@ -590,6 +592,15 @@ const App: React.FC = () => {
                       </h3>
                       <button onClick={() => { const id = Math.random().toString(36).substr(2,9); setCurrentInvoice({...currentInvoice!, items: [...currentInvoice!.items, {id, description:'', quantity:1, nights:1, unitPrice:0, total:0}]}) }} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all">+ Tambah</button>
                     </div>
+                    {/* Column Headers for Services */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 mb-2 px-1">
+                      <div className="col-span-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Deskripsi Layanan</div>
+                      <div className="col-span-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center">Qty</div>
+                      <div className="col-span-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center">Malam</div>
+                      <div className="col-span-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Harga Unit</div>
+                      <div className="col-span-3 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                      <div className="col-span-1"></div>
+                    </div>
                     <div className="space-y-2">
                       {currentInvoice.items.map(item => <InvoiceItemRow key={item.id} item={item} onUpdate={handleUpdateItem} onDelete={id => setCurrentInvoice({...currentInvoice!, items: currentInvoice!.items.filter(i => i.id !== id)})} />)}
                     </div>
@@ -602,6 +613,13 @@ const App: React.FC = () => {
                         Histori Pembayaran
                       </h3>
                       <button onClick={() => { const id = Math.random().toString(36).substr(2,9); setCurrentInvoice({...currentInvoice!, payments: [...currentInvoice!.payments, {id, date: new Date().toISOString().split('T')[0], method: PAYMENT_METHODS[0], amount:0}]}) }} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-all">+ Catat Bayar</button>
+                    </div>
+                    {/* Column Headers for Payments */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 mb-2 px-1">
+                      <div className="col-span-3 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tgl Bayar</div>
+                      <div className="col-span-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Metode</div>
+                      <div className="col-span-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Jumlah</div>
+                      <div className="col-span-1"></div>
                     </div>
                     <div className="space-y-2">
                       {currentInvoice.payments.map(p => <PaymentRow key={p.id} payment={p} onUpdate={handleUpdatePayment} onDelete={id => setCurrentInvoice({...currentInvoice!, payments: currentInvoice!.payments.filter(pay => pay.id !== id)})} />) || <p className="text-center py-4 text-slate-400 text-[10px] italic">Belum ada pembayaran.</p>}
@@ -632,8 +650,12 @@ const App: React.FC = () => {
                         <div className="bg-white/5 rounded-xl p-3 border border-white/5 space-y-2">
                           <div className="flex justify-between text-[10px] text-slate-400"><span>Subtotal</span><span>Rp {formatCurrency(calculateSubtotal(currentInvoice))}</span></div>
                           <div className="flex justify-between text-[10px] items-center"><span className="text-slate-400">Diskon</span><input type="text" className="w-20 bg-white/10 text-right px-1.5 py-0.5 rounded text-rose-400 text-[10px] border border-white/5 outline-none font-bold" value={formatCurrency(currentInvoice.discount)} onChange={e => setCurrentInvoice({...currentInvoice!, discount: parseInt(e.target.value.replace(/\D/g,'')) || 0})} /></div>
+                          <div className="flex justify-between text-[10px] text-emerald-400 font-medium"><span>Sudah Bayar</span><span>Rp {formatCurrency(calculatePayments(currentInvoice))}</span></div>
                           <div className="h-px bg-white/10"></div>
-                          <div className="text-center py-1"><p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Total Tagihan</p><h4 className="text-xl font-bold text-white tracking-tight">Rp {formatCurrency(calculateTotal(currentInvoice))}</h4></div>
+                          <div className="text-center py-1">
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Sisa Tagihan</p>
+                            <h4 className="text-xl font-bold text-white tracking-tight">Rp {formatCurrency(calculateBalance(currentInvoice))}</h4>
+                          </div>
                         </div>
                       </div>
                     </div>
