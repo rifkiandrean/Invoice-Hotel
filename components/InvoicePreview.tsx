@@ -45,24 +45,31 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
 
   return (
     <div id="invoice-content" className="page-a4 p-[12mm] flex flex-col relative bg-white overflow-hidden text-black leading-tight">
-      {/* Letterhead Header */}
-      <div className="flex flex-col items-center mb-1 text-center relative pt-4">
-        {hotel.logo && (
-          <img src={hotel.logo} alt="Hotel Logo" className="w-20 h-20 object-contain absolute left-0 top-2" />
-        )}
-        <h1 className="text-[22pt] font-serif font-black tracking-tight text-slate-900 mb-0.5 uppercase">
-          {hotel.name}
-        </h1>
-        <p className="text-[9pt] font-bold text-slate-800 uppercase tracking-wide max-w-[80%] leading-tight mb-1">
-          {hotel.address}
-        </p>
-        <p className="text-[8pt] font-medium text-slate-700 uppercase tracking-tighter">
-          PHONE: {hotel.phone} • EMAIL: {hotel.email}
-        </p>
+      {/* Adjusted Letterhead Header - Shifted Right */}
+      <div className="flex items-center mb-1 pb-2">
+        {/* Logo Column - Fixed width to push text to the right */}
+        <div className="w-32 flex-shrink-0 flex items-center justify-start">
+          {hotel.logo && (
+            <img src={hotel.logo} alt="Hotel Logo" className="w-24 h-24 object-contain" />
+          )}
+        </div>
+        
+        {/* Text Column - Centered in the remaining space */}
+        <div className="flex-1 flex flex-col items-center text-center pr-12">
+          <h1 className="text-[24pt] font-serif font-black tracking-tight text-slate-900 mb-0.5 uppercase">
+            {hotel.name}
+          </h1>
+          <p className="text-[10pt] font-bold text-slate-800 uppercase tracking-wide max-w-[90%] leading-tight mb-1">
+            {hotel.address}
+          </p>
+          <p className="text-[9pt] font-medium text-slate-700 uppercase tracking-tighter">
+            PHONE: {hotel.phone} • EMAIL: {hotel.email}
+          </p>
+        </div>
       </div>
 
       {/* Double Separator Line */}
-      <div className="border-t-4 border-black mt-2 mb-[1px]"></div>
+      <div className="border-t-4 border-black mt-1 mb-[1px]"></div>
       <div className="border-t border-black mb-6"></div>
 
       {/* Document Title */}
@@ -173,7 +180,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                   {Object.entries(groupedPayments).map(([method, amount]) => (
                     <div key={method} className="flex justify-between items-center text-[9pt]">
                       <span className="font-bold text-slate-600 uppercase tracking-tighter">{method}</span>
-                      {/* Fix: Cast unknown amount to number to satisfy formatCurrency signature */}
                       <span className="font-black text-emerald-700">Rp {formatCurrency(amount as number)}</span>
                     </div>
                   ))}
