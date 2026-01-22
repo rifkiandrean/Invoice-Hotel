@@ -45,13 +45,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       <div className="relative mb-4">
         <div className="flex items-center justify-between gap-6 pb-4">
           {hotel.logo && (
-            <img src={hotel.logo} alt="Logo" className="w-20 h-20 lg:w-24 lg:h-24 object-contain shrink-0" />
+            <img src={hotel.logo} alt="Logo" className="w-24 h-24 object-contain shrink-0" />
           )}
-          <div className="flex-1 text-center pr-4 lg:pr-12">
-            <h1 className="text-xl lg:text-2xl font-serif font-bold tracking-tight text-black mb-0.5 uppercase leading-tight">
+          <div className="flex-1 text-center pr-12">
+            <h1 className="text-2xl font-serif font-bold tracking-tight text-black mb-0.5 uppercase leading-tight">
               {hotel.name}
             </h1>
-            <div className="text-[8px] lg:text-[10px] text-black leading-relaxed uppercase tracking-wide">
+            <div className="text-[10px] text-black leading-relaxed uppercase tracking-wide">
               <p className="font-bold">{hotel.address}</p>
               <p className="mt-0.5">Phone: {hotel.phone} • Email: {hotel.email}</p>
               {hotel.website && hotel.website !== '-' && (
@@ -66,16 +66,16 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
 
       {/* Document Title */}
       <div className="text-center mb-6">
-        <h2 className="text-base lg:text-lg font-serif font-bold text-black tracking-[0.3em] uppercase underline underline-offset-4 decoration-black">
+        <h2 className="text-lg font-serif font-bold text-black tracking-[0.3em] uppercase underline underline-offset-4 decoration-black">
           INVOICE
         </h2>
       </div>
 
       {/* Guest & Stay Details - Forced 2 columns */}
-      <div className="grid grid-cols-2 gap-4 lg:gap-6 mb-6">
+      <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="bg-white p-4 border border-black/10">
           <h3 className="text-[8px] font-black uppercase tracking-widest text-black mb-2 border-b border-black pb-1">Guest</h3>
-          <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[10px] lg:text-[11px]">
+          <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[11px]">
             <span className="text-black font-medium">Name :</span>
             <span className="text-black font-bold uppercase">{invoice.guest.name}</span>
             <span className="text-black font-medium">Address :</span>
@@ -90,7 +90,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
 
         <div className="bg-white p-4 border border-black/10">
           <h3 className="text-[8px] font-black uppercase tracking-widest text-black mb-2 border-b border-black pb-1">Stay Details</h3>
-          <div className="grid grid-cols-2 gap-y-1.5 text-[10px] lg:text-[11px]">
+          <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
             <span className="text-black font-bold text-[8px] uppercase tracking-wider">Folio No:</span>
             <span className="text-black font-mono font-bold text-right">{invoice.invoiceNumber}</span>
             <span className="text-black font-bold text-[8px] uppercase tracking-wider">Type:</span>
@@ -193,7 +193,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             <div className="h-px bg-black my-1.5"></div>
             <div className="flex flex-col items-end">
               <span className="text-[8px] font-black text-black uppercase tracking-widest mb-0.5">Balance Due:</span>
-              <span className="text-base lg:text-lg font-serif font-black text-black">Rp {formatCurrency(balanceDue)}</span>
+              <span className="text-lg font-serif font-black text-black">Rp {formatCurrency(balanceDue)}</span>
             </div>
           </div>
         </div>
@@ -211,10 +211,10 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           
           <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
             {hotel.signature && (
-               <img src={hotel.signature} alt="Sign" className="absolute w-24 lg:w-28 object-contain opacity-95 z-10 translate-y-2" />
+               <img src={hotel.signature} alt="Sign" className="absolute w-28 object-contain opacity-95 z-10 translate-y-2" />
             )}
             {hotel.stamp && (
-               <img src={hotel.stamp} alt="Stamp" className="absolute w-24 lg:w-28 object-contain opacity-70 rotate-[-15deg] -translate-x-6 -translate-y-2" />
+               <img src={hotel.stamp} alt="Stamp" className="absolute w-28 object-contain opacity-70 rotate-[-15deg] -translate-x-6 -translate-y-2" />
             )}
           </div>
 

@@ -207,7 +207,6 @@ const App: React.FC = () => {
     const element = document.getElementById('invoice-content');
     if (!element) return;
     
-    // Konfigurasi PDF yang dioptimalkan untuk hasil yang presisi dan rata tengah
     const opt = {
       margin: 0,
       filename: `Invoice_${currentInvoice.invoiceNumber}.pdf`,
@@ -217,17 +216,12 @@ const App: React.FC = () => {
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#FFFFFF',
-        width: 794, // Standard A4 210mm @ 96 DPI
-        windowWidth: 794,
-        x: 0,
-        y: 0,
-        scrollX: 0,
-        scrollY: 0
+        width: 794, 
+        windowWidth: 794
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     
-    // Pastikan scroll berada di atas sebelum capture untuk menghindari misalignment
     const container = document.querySelector('.invoice-preview-container');
     if (container) container.scrollTop = 0;
 
@@ -692,23 +686,26 @@ const App: React.FC = () => {
 
         {viewMode === 'view' && currentInvoice && (
           <div className="flex-1 flex flex-col overflow-hidden animate-fade-in">
-            <div className="p-3 lg:p-4 bg-white border-b border-slate-200 flex flex-wrap gap-2 justify-between items-center no-print">
-              <button onClick={() => setViewMode('list')} className="text-slate-500 font-bold text-xs flex items-center gap-2 hover:text-slate-900">
+            <div className="p-3 lg:p-4 bg-white border-b border-slate-200 flex flex-wrap gap-3 justify-between items-center no-print">
+              <button onClick={() => setViewMode('list')} className="text-slate-500 font-bold text-xs flex items-center gap-2 hover:text-slate-900 bg-slate-100 px-3 py-2 rounded-xl">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Kembali
               </button>
-              <div className="flex gap-2">
-                <button onClick={() => setViewMode('create')} className="px-3 py-2 border border-slate-200 rounded-xl text-[10px] lg:text-xs font-bold">Edit</button>
-                <button onClick={() => window.print()} className="bg-slate-500 text-white px-3 py-2 rounded-xl text-[10px] lg:text-xs font-bold">Print</button>
-                <button onClick={downloadPDF} className="bg-slate-900 text-white px-4 lg:px-6 py-2 rounded-xl text-[10px] lg:text-xs font-bold flex items-center gap-2">
+              <div className="flex gap-2 flex-1 sm:flex-none justify-end">
+                <button onClick={() => setViewMode('create')} className="px-3 py-2 border border-slate-200 rounded-xl text-[10px] lg:text-xs font-bold text-slate-600 hover:bg-slate-50">Edit</button>
+                <button onClick={() => window.print()} className="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-[10px] lg:text-xs font-bold hover:bg-slate-300">Print</button>
+                <button onClick={downloadPDF} className="bg-slate-900 text-white px-4 lg:px-6 py-2 rounded-xl text-[10px] lg:text-xs font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  Download PDF
+                  <span className="hidden xs:inline">Simpan PDF</span>
+                  <span className="xs:hidden">PDF</span>
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto print:bg-white print:p-0 custom-scrollbar bg-slate-100">
+            <div className="flex-1 overflow-y-auto print:bg-white print:p-0 custom-scrollbar bg-slate-200/50">
               <div className="invoice-preview-container">
-                <InvoicePreview invoice={currentInvoice} settings={settings} />
+                <div className="invoice-scaler-wrapper">
+                  <InvoicePreview invoice={currentInvoice} settings={settings} />
+                </div>
               </div>
             </div>
           </div>
