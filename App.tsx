@@ -703,9 +703,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex-1 overflow-y-auto print:bg-white print:p-0 custom-scrollbar bg-slate-200/50">
               <div className="invoice-preview-container">
-                <div className="invoice-scaler-wrapper">
-                  <InvoicePreview invoice={currentInvoice} settings={settings} />
-                </div>
+                <InvoicePreview invoice={currentInvoice} settings={settings} />
               </div>
             </div>
           </div>

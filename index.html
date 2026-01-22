@@ -20,6 +20,7 @@
       /* Base A4 Dimensions */
       .page-a4 {
         width: 210mm;
+        min-width: 210mm; /* Force minimum width to prevent shrinking */
         min-height: 297mm; 
         margin: 0 auto;
         background: white;
@@ -27,44 +28,27 @@
         box-sizing: border-box;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         border: 1px solid #e2e8f0;
-        transform-origin: top center;
-        /* Menghaluskan rendering saat scale down */
-        backface-visibility: hidden;
-        -webkit-font-smoothing: antialiased;
+        /* No scaling applied, ensuring strict A4 size */
       }
 
       /* Container Preview */
       .invoice-preview-container {
         width: 100%;
+        min-height: 100%;
         background-color: #f1f5f9;
-        padding: 40px 10px;
+        padding: 40px;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        overflow-x: hidden;
+        justify-content: center;
+        align-items: flex-start;
+        /* Enable scrolling for the container if invoice is larger than screen */
+        overflow: auto; 
       }
 
-      /* Mobile Scaling System */
+      /* Mobile overrides for padding only */
       @media (max-width: 1024px) {
         .invoice-preview-container {
-          padding: 20px 5px;
-        }
-
-        /* Pembungkus untuk menahan tinggi asli setelah scale */
-        .invoice-scaler-wrapper {
-          --scale-factor: calc(min(95vw, 794px) / 794);
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          /* Tinggi dinamis: Tinggi A4 (1123px approx) * scale factor */
-          height: calc(297mm * var(--scale-factor));
-          overflow: visible;
-        }
-        
-        .page-a4 {
-          transform: scale(var(--scale-factor));
-          margin: 0;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          padding: 20px;
+          justify-content: flex-start; /* Align start to make scrolling easier on small screens */
         }
       }
 
@@ -86,18 +70,17 @@
           padding: 0 !important;
           background: white !important;
           display: block !important;
-        }
-        .invoice-scaler-wrapper {
+          width: auto !important;
           height: auto !important;
-          display: block !important;
+          overflow: visible !important;
         }
         .page-a4 {
           width: 210mm !important;
+          min-width: 210mm !important;
           min-height: 297mm !important;
           margin: 0 !important;
           border: none !important;
           box-shadow: none !important;
-          transform: none !important;
           padding: 13mm !important;
         }
         .hide-on-physical-print {
@@ -127,7 +110,7 @@
     }
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 overflow-x-hidden">
+  <body class="bg-slate-50 text-slate-900 overflow-hidden">
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
   </body>
