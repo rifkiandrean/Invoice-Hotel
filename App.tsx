@@ -217,8 +217,6 @@ const App: React.FC = () => {
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#FFFFFF',
-        width: 794, 
-        windowWidth: 794,
         scrollY: 0, 
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
