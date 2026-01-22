@@ -71,8 +71,8 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </h2>
       </div>
 
-      {/* Guest & Stay Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-6">
+      {/* Guest & Stay Details - Forced 2 columns for print and preview consistency */}
+      <div className="grid grid-cols-2 gap-4 lg:gap-6 mb-6">
         <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
           <h3 className="text-[8px] font-bold uppercase tracking-widest text-indigo-500 mb-2 border-b border-indigo-100 pb-1">Guest</h3>
           <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[10px] lg:text-[11px]">
@@ -159,8 +159,8 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </div>
       )}
 
-      {/* Summary Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
+      {/* Summary Section - Forced Row for print consistency */}
+      <div className="flex flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
         <div className="flex-1 w-full">
           {invoice.remarks && (
             <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
@@ -177,7 +177,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             <p className="text-indigo-600 font-mono text-[10px] font-bold tracking-tight">BANK MANDIRI : 1770021861510</p>
           </div>
         </div>
-        <div className="w-full md:w-[200px] shrink-0">
+        <div className="w-[200px] shrink-0">
           <div className="space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner">
             <div className="flex justify-between text-slate-500 text-[9px] font-bold uppercase">
               <span>Subtotal:</span>
@@ -202,7 +202,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </div>
       </div>
 
-      {/* Signature Section */}
+      {/* Signature Section - Strictly 2 columns */}
       <div className="mt-10 grid grid-cols-2 gap-12 px-6 relative">
         <div className="text-center">
           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-16">Guest Signature</p>
@@ -212,7 +212,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         <div className="text-center relative">
           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-16">Receptionist / Cashier</p>
           
-          {/* DIGITAL SIGNATURE AND STAMP - Strictly hidden on browser print via .hide-on-physical-print */}
+          {/* DIGITAL SIGNATURE AND STAMP - Strictly hidden on physical print via class in index.html */}
           <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
             {hotel.signature && (
                <img src={hotel.signature} alt="Sign" className="absolute w-24 lg:w-28 object-contain opacity-95 z-10 translate-y-2" />
