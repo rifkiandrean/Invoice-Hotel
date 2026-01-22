@@ -21,16 +21,15 @@
       .page-a4 {
         width: 210mm;
         min-width: 210mm;
-        /* Slightly less than 297mm to prevent html2pdf overflowing to a blank 2nd page due to rounding/borders */
-        min-height: 296.8mm; 
+        min-height: 296.8mm; /* A4 Height */
         margin: 0 auto;
         background: white;
         position: relative;
         box-sizing: border-box;
-        /* Screen-only visual styles */
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         border: 1px solid #e2e8f0;
-        overflow: hidden; /* Ensure content is clipped if too long, avoiding scrollbars on the element itself */
+        overflow: hidden;
+        margin-bottom: 20px; /* Space between pages on screen */
       }
 
       /* Container Preview */
@@ -40,15 +39,15 @@
         background-color: #f1f5f9;
         padding: 40px;
         display: flex;
-        justify-content: center;
-        align-items: flex-start;
+        flex-direction: column; /* Stack pages vertically */
+        align-items: center;
         overflow: auto; 
       }
 
       @media (max-width: 1024px) {
         .invoice-preview-container {
           padding: 20px;
-          justify-content: flex-start; 
+          align-items: flex-start;
         }
       }
 
@@ -59,7 +58,6 @@
           margin: 0;
         }
         
-        /* Hide scrollbars globally in print */
         ::-webkit-scrollbar {
           display: none;
         }
@@ -92,14 +90,21 @@
         .page-a4 {
           width: 210mm !important;
           min-width: 210mm !important;
-          height: 297mm !important; /* Force exact height for physical print */
+          height: 297mm !important;
           margin: 0 !important;
           border: none !important;
           box-shadow: none !important;
           padding: 13mm !important;
           overflow: hidden !important;
+          page-break-after: always; /* Force new page after each .page-a4 */
           print-color-adjust: exact;
           -webkit-print-color-adjust: exact;
+        }
+
+        /* Remove margin/break from the very last page to avoid blank sheet at end */
+        .page-a4:last-child {
+          page-break-after: auto;
+          margin-bottom: 0;
         }
         
         .hide-on-physical-print {
