@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -29,6 +30,7 @@
         /* Screen-only visual styles */
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         border: 1px solid #e2e8f0;
+        overflow: hidden; /* Ensure content is clipped if too long, avoiding scrollbars on the element itself */
       }
 
       /* Container Preview */
@@ -56,22 +58,37 @@
           size: A4;
           margin: 0;
         }
+        
+        /* Hide scrollbars globally in print */
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        
+        html, body, #root, main {
+          height: auto !important;
+          overflow: visible !important;
+          background: white !important;
+        }
+
         body {
           margin: 0;
           padding: 0;
-          background: white !important;
         }
+        
         .no-print {
           display: none !important;
         }
+        
+        /* Reset containers for print flow */
         .invoice-preview-container {
           padding: 0 !important;
           background: white !important;
           display: block !important;
-          width: auto !important;
+          width: 100% !important;
           height: auto !important;
           overflow: visible !important;
         }
+        
         .page-a4 {
           width: 210mm !important;
           min-width: 210mm !important;
@@ -81,7 +98,10 @@
           box-shadow: none !important;
           padding: 13mm !important;
           overflow: hidden !important;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
         }
+        
         .hide-on-physical-print {
           display: none !important;
         }
