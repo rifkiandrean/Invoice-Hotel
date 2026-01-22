@@ -15,6 +15,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
   const balanceDue = totalCharge - totalPaid;
 
+  // Group payments by method
+  const groupedPayments = invoice.payments.reduce((acc, p) => {
+    const method = p.method || 'Other';
+    acc[method] = (acc[method] || 0) + p.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
@@ -43,7 +50,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         {hotel.logo && (
           <img src={hotel.logo} alt="Hotel Logo" className="w-20 h-20 object-contain absolute left-0 top-2" />
         )}
-        <h1 className="text-[22pt] font-serif font-black tracking-tight text-slate-900 mb-0.5">
+        <h1 className="text-[22pt] font-serif font-black tracking-tight text-slate-900 mb-0.5 uppercase">
           {hotel.name}
         </h1>
         <p className="text-[9pt] font-bold text-slate-800 uppercase tracking-wide max-w-[80%] leading-tight mb-1">
@@ -143,8 +150,8 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 <td className="py-2.5 px-3 font-black text-slate-900 text-right border-x border-slate-300">Rp {formatCurrency(item.quantity * item.nights * item.unitPrice)}</td>
               </tr>
             ))}
-            {/* Empty Rows for visual space like real invoices */}
-            {[...Array(Math.max(0, 5 - invoice.items.length))].map((_, i) => (
+            {/* Empty Rows for visual space */}
+            {[...Array(Math.max(0, 4 - invoice.items.length))].map((_, i) => (
               <tr key={`empty-${i}`} className="h-8">
                 <td className="border-x border-slate-300"></td>
                 <td className="border-x border-slate-300"></td>
@@ -156,9 +163,39 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           </tbody>
         </table>
 
-        {/* Totals Summary */}
-        <div className="mt-4 flex justify-end">
-          <div className="w-[300px] border border-slate-300 rounded-sm">
+        <div className="mt-6 flex justify-between gap-8">
+          {/* Summarized Payments Section */}
+          <div className="flex-1">
+            {Object.keys(groupedPayments).length > 0 && (
+              <div className="border border-slate-200 rounded-sm p-3 bg-slate-50/50">
+                <h3 className="text-[7pt] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 border-b border-slate-200 pb-1">PAYMENT SUMMARY</h3>
+                <div className="space-y-1">
+                  {Object.entries(groupedPayments).map(([method, amount]) => (
+                    <div key={method} className="flex justify-between items-center text-[9pt]">
+                      <span className="font-bold text-slate-600 uppercase tracking-tighter">{method}</span>
+                      {/* Fix: Cast unknown amount to number to satisfy formatCurrency signature */}
+                      <span className="font-black text-emerald-700">Rp {formatCurrency(amount as number)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-200 mt-2 pt-1 flex justify-between items-center text-[9pt] font-black">
+                    <span className="text-slate-400 uppercase text-[7pt]">TOTAL RECEIVED</span>
+                    <span className="text-emerald-700">Rp {formatCurrency(totalPaid)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Remarks Section */}
+            {invoice.remarks && (
+              <div className="mt-4">
+                <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest mb-1">Remarks:</p>
+                <p className="text-[9pt] text-slate-700 italic leading-relaxed whitespace-pre-wrap">{invoice.remarks}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Totals Summary */}
+          <div className="w-[280px] shrink-0 border border-slate-300 rounded-sm overflow-hidden h-fit">
             <div className="flex justify-between px-3 py-2 text-[9pt] border-b border-slate-100">
               <span className="font-bold text-slate-500 uppercase">SUBTOTAL</span>
               <span className="font-bold">Rp {formatCurrency(subtotal)}</span>
@@ -169,15 +206,19 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 <span className="font-bold text-rose-600">- Rp {formatCurrency(invoice.discount)}</span>
               </div>
             )}
-            <div className="flex justify-between px-3 py-3 bg-slate-50">
-              <span className="text-[10pt] font-black uppercase">GRAND TOTAL</span>
-              <span className="text-[12pt] font-black">Rp {formatCurrency(totalCharge)}</span>
+            <div className="flex justify-between px-3 py-2 text-[9pt] border-b border-slate-100 text-emerald-700 bg-emerald-50/30">
+              <span className="font-bold uppercase">PAID / DEPOSIT</span>
+              <span className="font-bold">- Rp {formatCurrency(totalPaid)}</span>
+            </div>
+            <div className="flex justify-between px-3 py-3 bg-slate-900 text-white">
+              <span className="text-[9pt] font-black uppercase tracking-wider">BALANCE DUE</span>
+              <span className="text-[12pt] font-black">Rp {formatCurrency(balanceDue)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Signature and Remarks Section */}
+      {/* Signature Section */}
       <div className="mt-12 grid grid-cols-2 gap-20">
         <div className="text-center">
           <p className="text-[8pt] font-bold text-slate-400 uppercase tracking-widest mb-20">GUEST SIGNATURE</p>
@@ -202,21 +243,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </div>
       </div>
 
-      {/* Remarks Footer */}
-      {invoice.remarks && (
-        <div className="mt-8 pt-4 border-t border-slate-100">
-          <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest mb-1">Remarks:</p>
-          <p className="text-[9pt] text-slate-700 italic">{invoice.remarks}</p>
-        </div>
-      )}
-
       {/* Page Footer */}
       <div className="mt-auto pt-8 text-center border-t border-slate-100">
         <p className="text-slate-400 text-[7pt] uppercase font-bold tracking-[0.3em] mb-1">
           Thank you for choosing {hotel.name}
         </p>
         <p className="text-slate-300 text-[6pt]">
-          Printed: {new Date().toLocaleString('id-ID')}
+          Printed: {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
         </p>
       </div>
     </div>
