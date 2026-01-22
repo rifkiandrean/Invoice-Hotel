@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Invoice, HotelSettings } from '../types';
 
@@ -133,4 +132,109 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
               </tr>
             ))}
             {/* Visual filler rows */}
-            {[...Array(Math.max(0, 5 - invoice.items.
+            {[...Array(Math.max(0, 5 - invoice.items.length))].map((_, i) => (
+              <tr key={`filler-${i}`} className="h-10">
+                <td className="px-4"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 flex justify-between gap-10">
+          {/* Grouped Payments Column */}
+          <div className="flex-1">
+            {Object.keys(groupedPayments).length > 0 && (
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                <h4 className="text-[7pt] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Payment Summary</h4>
+                <div className="space-y-2">
+                  {Object.entries(groupedPayments).map(([method, amount]) => (
+                    <div key={method} className="flex justify-between items-center text-[9pt]">
+                      <span className="font-bold text-slate-500 uppercase tracking-tighter">{method}</span>
+                      <span className="font-black text-emerald-700">Rp {formatCurrency(amount)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-200 mt-2 pt-2 flex justify-between items-center">
+                    <span className="text-[8pt] font-black text-slate-400 uppercase">Total Received</span>
+                    <span className="text-[10pt] font-black text-emerald-700">Rp {formatCurrency(totalPaid)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {invoice.remarks && (
+              <div className="mt-4 px-2">
+                <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest mb-1">Remarks & Notes</p>
+                <p className="text-[9pt] text-slate-600 italic leading-relaxed whitespace-pre-wrap">{invoice.remarks}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Totals Summary Column */}
+          <div className="w-[280px] shrink-0 space-y-1">
+            <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-50">
+              <span className="font-bold text-slate-400 uppercase">Subtotal</span>
+              <span className="font-bold text-slate-700">Rp {formatCurrency(subtotal)}</span>
+            </div>
+            {invoice.discount > 0 && (
+              <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-50">
+                <span className="font-bold text-slate-400 uppercase">Adjustment</span>
+                <span className="font-bold text-rose-600">- Rp {formatCurrency(invoice.discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-50 bg-emerald-50/20 text-emerald-700">
+              <span className="font-bold uppercase">Total Payments</span>
+              <span className="font-bold">- Rp {formatCurrency(totalPaid)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-4 bg-slate-900 text-white rounded-xl shadow-lg mt-2">
+              <span className="text-[10pt] font-black uppercase tracking-widest">Balance Due</span>
+              <span className="text-[13pt] font-black">Rp {formatCurrency(balanceDue)}</span>
+            </div>
+            {balanceDue <= 0 && (
+               <div className="text-center pt-2">
+                 <span className="inline-block border-2 border-emerald-500 text-emerald-500 px-4 py-1 rounded text-[10pt] font-black uppercase tracking-[0.3em] rotate-[-5deg]">SETTLED</span>
+               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Signature & Authentication Section */}
+      <div className="mt-16 grid grid-cols-2 gap-20">
+        <div className="text-center">
+          <p className="text-[8pt] font-bold text-slate-400 uppercase tracking-[0.3em] mb-20">GUEST SIGNATURE</p>
+          <div className="border-b border-slate-300 w-52 mx-auto mb-1"></div>
+          <p className="text-[10pt] font-bold uppercase text-slate-900">{invoice.guest.name || 'Guest'}</p>
+        </div>
+        <div className="text-center relative">
+          <p className="text-[8pt] font-bold text-slate-400 uppercase tracking-[0.3em] mb-20">CASHIER / RECEPTIONIST</p>
+          
+          {/* Authenticity Stamps & Digital Signatures */}
+          <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-24 pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
+            {hotel.signature && (
+               <img src={hotel.signature} alt="Sign" className="absolute w-36 object-contain opacity-90 z-10 translate-y-3" />
+            )}
+            {hotel.stamp && (
+               <img src={hotel.stamp} alt="Stamp" className="absolute w-36 object-contain opacity-30 rotate-[-12deg] -translate-x-8 -translate-y-2 mix-blend-multiply" />
+            )}
+          </div>
+
+          <div className="border-b border-slate-300 w-52 mx-auto mb-1"></div>
+          <p className="text-[10pt] font-bold uppercase text-slate-900">{invoice.cashierName || 'Staff Member'}</p>
+        </div>
+      </div>
+
+      {/* Footer Branding */}
+      <div className="mt-auto pt-8 border-t border-slate-100 text-center">
+        <p className="text-slate-400 text-[8pt] font-bold uppercase tracking-[0.5em] mb-1">Thank You For Your Visit</p>
+        <div className="flex justify-center gap-4 text-[7pt] text-slate-300 uppercase font-medium">
+          <span>{hotel.website !== '-' ? hotel.website : ''}</span>
+          <span>Printed: {new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
