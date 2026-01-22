@@ -21,7 +21,7 @@
       .page-a4 {
         width: 210mm;
         min-width: 210mm;
-        min-height: 297mm; /* Standard A4 Height */
+        min-height: 296.8mm; /* A4 Height */
         margin: 0 auto;
         background: white;
         position: relative;
@@ -30,20 +30,6 @@
         border: 1px solid #e2e8f0;
         overflow: hidden;
         margin-bottom: 20px; /* Space between pages on screen */
-      }
-
-      /* PDF Generation State: Remove gaps to prevent blank extra pages */
-      .pdf-generating .page-a4 {
-        margin-bottom: 0 !important;
-        border: none !important;
-        box-shadow: none !important;
-        height: 297mm !important;
-        min-height: 297mm !important;
-        page-break-after: always !important; /* Critical for html2pdf split */
-      }
-      
-      .pdf-generating .page-a4:last-child {
-        page-break-after: avoid !important;
       }
 
       /* Container Preview */
