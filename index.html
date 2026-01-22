@@ -51,6 +51,7 @@
           background: white !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
+          color: #000 !important; /* Global print text color */
         }
         .no-print {
           display: none !important;
@@ -66,16 +67,29 @@
           position: absolute !important;
           top: 0 !important;
           left: 0 !important;
+          color: #000 !important;
         }
+        
+        /* Force black text for everything inside the invoice during print */
+        #invoice-content, #invoice-content * {
+          color: #000 !important;
+        }
+        
+        /* Exception for table headers text to remain white if background is black */
+        #invoice-content thead th {
+          color: #fff !important;
+        }
+
         /* Hide digital assets strictly for physical browser print */
         .hide-on-physical-print {
           display: none !important;
           visibility: hidden !important;
           opacity: 0 !important;
         }
+        
         /* Ensure table headers have backgrounds in print */
         thead tr {
-          background-color: #1e293b !important;
+          background-color: #000 !important;
           color: white !important;
           -webkit-print-color-adjust: exact !important;
         }
