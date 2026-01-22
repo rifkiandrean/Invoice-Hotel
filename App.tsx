@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } from './types';
 import { InvoicePreview } from './components/InvoicePreview';
@@ -208,6 +207,9 @@ const App: React.FC = () => {
     const element = document.getElementById('invoice-content');
     if (!element) return;
     
+    // 1. Tambahkan kelas khusus untuk menghilangkan margin antar halaman
+    element.classList.add('pdf-generating');
+
     const opt = {
       margin: 0,
       filename: `Invoice_${currentInvoice.invoiceNumber}.pdf`,
@@ -225,7 +227,18 @@ const App: React.FC = () => {
     const container = document.querySelector('.invoice-preview-container');
     if (container) container.scrollTop = 0;
 
-    html2pdf().set(opt).from(element).save();
+    // 2. Generate PDF lalu hapus kelas
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => {
+        element.classList.remove('pdf-generating');
+      })
+      .catch((err: any) => {
+        console.error('PDF Error:', err);
+        element.classList.remove('pdf-generating');
+      });
   };
 
   const handleUpdateItem = (id: string, updates: Partial<InvoiceItem>) => {

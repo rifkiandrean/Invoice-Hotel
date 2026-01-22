@@ -32,6 +32,16 @@
         margin-bottom: 20px; /* Space between pages on screen */
       }
 
+      /* PDF Generation State: Remove gaps to prevent blank extra pages */
+      .pdf-generating .page-a4 {
+        margin-bottom: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        /* Ensure exact height helps html2pdf */
+        height: 296.8mm !important;
+        min-height: 296.8mm !important;
+      }
+
       /* Container Preview */
       .invoice-preview-container {
         width: 100%;
