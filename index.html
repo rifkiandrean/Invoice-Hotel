@@ -17,7 +17,7 @@
         font-family: 'Playfair Display', serif;
       }
       
-      /* Base A4 Dimensions - Fixed for all devices to ensure correct capture */
+      /* Base A4 Dimensions - Fixed for all devices to ensure capture quality */
       .page-a4 {
         width: 210mm;
         min-height: 296.5mm; 
@@ -25,15 +25,49 @@
         background: white;
         position: relative;
         box-sizing: border-box;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+        /* Paper styling shared by all viewports */
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        border: 1px solid #e2e8f0;
       }
 
-      /* Container to handle mobile display without shrinking the internal page-a4 */
+      /* Unified Preview Container */
       .invoice-preview-container {
         width: 100%;
-        overflow-x: auto;
+        min-height: 100%;
         display: flex;
         justify-content: center;
-        padding: 1rem;
+        background-color: #f8fafc;
+        padding: 40px 0;
+        overflow-x: hidden; /* Prevent horizontal scroll on mobile when scaling */
+      }
+
+      /* Desktop Preview Styling */
+      @media (min-width: 1025px) {
+        .invoice-preview-container {
+          padding: 40px 0;
+        }
+      }
+
+      /* Mobile UI Styling - Scale A4 to fit viewport */
+      @media (max-width: 1024px) {
+        .invoice-preview-container {
+          padding: 20px 0;
+          align-items: flex-start;
+          height: auto;
+          overflow-y: auto;
+        }
+        
+        /* The magic scaling: 
+           A4 width is roughly 794px. 
+           We scale based on viewport width (vw) 
+        */
+        .page-a4 {
+          transform: scale(calc(min(90vw, 794px) / 794));
+          transform-origin: top center;
+          margin-bottom: -50%; /* Offset the extra space caused by scale */
+        }
       }
 
       /* Custom Animations */
@@ -65,26 +99,33 @@
         .no-print {
           display: none !important;
         }
+        .invoice-preview-container {
+          padding: 0 !important;
+          background: white !important;
+          display: block !important;
+        }
         .page-a4 {
           width: 210mm !important;
-          height: 297mm !important;
-          margin: 0 !important;
+          min-height: 297mm !important;
+          margin: 0 auto !important;
           border: none !important;
           box-shadow: none !important;
           border-radius: 0 !important;
           padding: 13mm !important;
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
+          position: relative !important;
           color: #000 !important;
+          overflow: visible !important;
+          transform: none !important; /* Reset scaling for print */
         }
         
         #invoice-content, #invoice-content * {
           color: #000 !important;
+          print-color-adjust: exact !important;
         }
         
         #invoice-content thead th {
           color: #fff !important;
+          background-color: #000 !important;
         }
 
         .hide-on-physical-print {
@@ -96,25 +137,6 @@
         thead tr {
           background-color: #000 !important;
           color: white !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-      }
-
-      /* Mobile UI Display Fix - Scales the view but keeps the internal A4 dimensions for capture */
-      @media (max-width: 1024px) {
-        .invoice-preview-container {
-          padding: 0.5rem;
-          background-color: #f1f5f9;
-        }
-        
-        /* Instead of resizing the page-a4, we scroll it or scale it in CSS */
-        /* To make it fully visible on mobile screens, we allow horizontal scrolling */
-        .page-a4 {
-          /* We DON'T use width: 100% here as it breaks PDF/Print capture */
-          box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-          transform-origin: top center;
-          /* Optional: use a smaller scale if you want it to "fit" better on screen */
-          /* transform: scale(0.45); (Note: this can make text blurry, better to just scroll) */
         }
       }
 
