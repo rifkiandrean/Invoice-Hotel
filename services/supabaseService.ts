@@ -1,5 +1,5 @@
 
-import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { Invoice, HotelSettings, UserProfile, UserRole } from '../types';
 import { HOTEL_INFO } from '../constants';
 
@@ -22,19 +22,16 @@ export const signIn = async (email: string, pass: string) => {
 };
 
 export const signUpNewUser = async (email: string, pass: string, role: UserRole) => {
-  // Note: SignUp logs the user in automatically on standard Supabase config.
-  // In a real management system, this would be an admin edge function.
   const { data, error } = await supabase.auth.signUp({ 
     email, 
     password: pass,
     options: {
-      data: { role } // Store in metadata
+      data: { role }
     }
   });
   
   if (error) return { error };
   
-  // Create profile entry
   if (data.user) {
     await upsertProfile({
       id: data.user.id,
@@ -120,11 +117,12 @@ export const fetchSettingsFromSupabase = async (settings: HotelSettings): Promis
       .from('settings')
       .select('data')
       .eq('id', 'hotel_profile')
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     return data ? (data.data as HotelSettings) : null;
   } catch (err) {
+    console.error("Fetch Settings Error:", err);
     return null;
   }
 };
@@ -140,6 +138,7 @@ export const fetchInvoicesFromSupabase = async (settings: HotelSettings): Promis
     if (error) throw error;
     return (data || []).map((row: any) => row.data as Invoice);
   } catch (err) {
+    console.error("Fetch Invoices Error:", err);
     return [];
   }
 };
@@ -156,8 +155,10 @@ export const upsertInvoiceToSupabase = async (invoice: Invoice, settings: HotelS
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
-    return !error;
+    if (error) throw error;
+    return true;
   } catch (err) {
+    console.error("Upsert Invoice Error:", err);
     return false;
   }
 };
@@ -165,6 +166,7 @@ export const upsertInvoiceToSupabase = async (invoice: Invoice, settings: HotelS
 export const saveSettingsToSupabase = async (hotelSettings: HotelSettings): Promise<boolean> => {
   const client = getSupabaseClient(hotelSettings);
   try {
+    // Simplify payload to ensure column compatibility
     const { error } = await client
       .from('settings')
       .upsert({ 
@@ -173,8 +175,10 @@ export const saveSettingsToSupabase = async (hotelSettings: HotelSettings): Prom
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
-    return !error;
+    if (error) throw error;
+    return true;
   } catch (err) {
+    console.error("Save Settings Error:", err);
     return false;
   }
 };

@@ -21,6 +21,11 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'receptionist' as UserRole });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
+  // Sync local form state when settings prop changes (e.g., after cloud sync)
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
+
   useEffect(() => {
     if (activeTab === 'accounts' && (currentUserRole === 'admin' || currentUserRole === 'super-admin')) {
       loadProfiles();
@@ -29,7 +34,6 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
 
   const loadProfiles = async () => {
     const data = await fetchProfiles();
-    // Mark super admins in the fetched list too for UI consistency
     const processedData = data.map(p => {
       if (SUPER_ADMIN_EMAILS.includes(p.email.toLowerCase())) {
         return { ...p, role: 'super-admin' as UserRole };
@@ -42,7 +46,6 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
-    alert('Pengaturan berhasil diperbarui!');
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -74,22 +77,17 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!formData.supabaseUrl || !formData.supabaseAnonKey) {
-        alert('Mohon lengkapi konfigurasi Supabase terlebih dahulu.');
-        return;
-      }
       setIsUploading(field);
       try {
         const publicUrl = await uploadAsset(file, formData, field);
         if (publicUrl) {
-          if (field === 'logo') {
-            setFormData({ ...formData, logo: publicUrl, stamp: publicUrl });
-          } else {
-            setFormData({ ...formData, [field]: publicUrl });
-          }
+          const updatedData = { ...formData, [field]: publicUrl };
+          if (field === 'logo') updatedData.stamp = publicUrl;
+          setFormData(updatedData);
         }
       } catch (error) {
         console.error("Upload error:", error);
+        alert("Gagal mengunggah gambar. Pastikan bucket 'hotel-assets' tersedia.");
       } finally {
         setIsUploading(null);
       }

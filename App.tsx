@@ -35,25 +35,21 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   
-  // PIN Protection State
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  // Filtering States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Source of Truth: Initialize with Constants, overwrite with Cloud data on mount
   const [settings, setSettings] = useState<HotelSettings>({
     ...HOTEL_INFO,
     defaultTaxRate: TAX_RATE,
     settingsPin: "1234"
   });
 
-  // Auth Listener
   useEffect(() => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
       setSession(newSession);
@@ -87,7 +83,6 @@ const App: React.FC = () => {
         setSettings(prev => ({ 
           ...prev, 
           ...cloudSettings,
-          // Ensure crucial DB config stays from the hardcoded constants if cloud data is corrupted
           supabaseUrl: HOTEL_INFO.supabaseUrl,
           supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
         }));
@@ -107,7 +102,6 @@ const App: React.FC = () => {
     }
   }, [session, loadCloudSettings]);
 
-  // Sync Invoices from Cloud
   const syncFromSupabase = useCallback(async () => {
     if (!session) return;
     setSyncStatus('syncing');
@@ -129,18 +123,17 @@ const App: React.FC = () => {
   }, [viewMode, syncFromSupabase, session]);
 
   const handleSaveSettings = async (newSettings: HotelSettings) => {
-    // Immediate UI update for responsiveness
-    setSettings(newSettings);
-    
     if (session) {
       setSyncStatus('syncing');
       const success = await saveSettingsToSupabase(newSettings);
       if (success) {
+        setSettings(newSettings);
         setSyncStatus('success');
+        alert('Pengaturan berhasil disimpan ke cloud!');
       } else {
         setSyncStatus('error');
-        // Rollback on error? Re-fetch settings
-        loadCloudSettings();
+        alert('Gagal menyimpan ke cloud. Periksa koneksi atau database.');
+        loadCloudSettings(); 
       }
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
@@ -167,24 +160,19 @@ const App: React.FC = () => {
     if (!currentInvoice) return;
     const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
     
-    // Add to local list first for responsiveness
-    setInvoices(prev => {
-      const index = prev.findIndex(i => i.id === finalizedInvoice.id);
-      if (index !== -1) {
-        const newList = [...prev];
-        newList[index] = finalizedInvoice;
-        return newList;
-      }
-      return [finalizedInvoice, ...prev];
-    });
-
     setCurrentInvoice(finalizedInvoice);
     setViewMode('view');
 
     if (session) {
       setSyncStatus('syncing');
       const success = await upsertInvoiceToSupabase(finalizedInvoice, settings);
-      setSyncStatus(success ? 'success' : 'error');
+      if (success) {
+        setSyncStatus('success');
+        syncFromSupabase();
+      } else {
+        setSyncStatus('error');
+        alert('Gagal menyimpan invoice ke cloud.');
+      }
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
   };
@@ -679,7 +667,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* PIN Protection Modal */}
       {showPinModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className={`bg-white rounded-3xl shadow-2xl p-8 w-full max-w-xs text-center border border-white/20 transition-all ${pinError ? 'animate-shake' : 'animate-slide-up'}`}>
