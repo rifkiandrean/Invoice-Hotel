@@ -21,7 +21,7 @@
       .page-a4 {
         width: 210mm;
         min-width: 210mm;
-        min-height: 296.8mm; /* A4 Height */
+        min-height: 297mm; /* Standard A4 Height */
         margin: 0 auto;
         background: white;
         position: relative;
@@ -37,9 +37,13 @@
         margin-bottom: 0 !important;
         border: none !important;
         box-shadow: none !important;
-        /* Ensure exact height helps html2pdf */
-        height: 296.8mm !important;
-        min-height: 296.8mm !important;
+        height: 297mm !important;
+        min-height: 297mm !important;
+        page-break-after: always !important; /* Critical for html2pdf split */
+      }
+      
+      .pdf-generating .page-a4:last-child {
+        page-break-after: avoid !important;
       }
 
       /* Container Preview */

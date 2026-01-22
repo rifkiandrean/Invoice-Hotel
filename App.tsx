@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } from './types';
 import { InvoicePreview } from './components/InvoicePreview';
@@ -207,7 +208,7 @@ const App: React.FC = () => {
     const element = document.getElementById('invoice-content');
     if (!element) return;
     
-    // 1. Tambahkan kelas khusus untuk menghilangkan margin antar halaman
+    // 1. Tambahkan kelas khusus untuk mode PDF
     element.classList.add('pdf-generating');
 
     const opt = {
@@ -221,7 +222,8 @@ const App: React.FC = () => {
         backgroundColor: '#FFFFFF',
         scrollY: 0, 
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] } // Ensure CSS page-breaks are respected
     };
     
     const container = document.querySelector('.invoice-preview-container');
