@@ -1,32 +1,33 @@
 
 import React, { useMemo } from 'react';
-import { Invoice, HotelSettings, InvoiceItem } from '../types';
+import { Invoice, HotelSettings, InvoiceItem, Payment } from '../types';
 
 interface Props {
   invoice: Invoice;
   settings?: HotelSettings;
 }
 
-// Configuration for pagination limits
-const CONFIG = {
-  // Batas gabungan (Item + Pembayaran) untuk 1 halaman. 
-  // Angka 10 memastikan jika ada 7 item + 5 pembayaran, dia akan pecah ke hal 2.
-  SINGLE_PAGE_COMBINED_LIMIT: 10,
-  
-  // Halaman 1 pada mode multi-halaman (Hanya item, tanpa footer/summary)
-  FIRST_PAGE_ITEM_LIMIT: 14,
-  
-  // Halaman tengah (Hanya item)
-  MIDDLE_PAGE_ITEM_LIMIT: 22,
-  
-  // Halaman terakhir (Item Sisa + Pembayaran + Summary)
-  LAST_PAGE_COMBINED_LIMIT: 10
+interface PageData {
+  pageNumber: number;
+  isFirst: boolean;
+  isLast: boolean;
+  items: InvoiceItem[];
+  payments: Payment[];
+  showSummary: boolean;
+  showGuestInfo: boolean;
+}
+
+// Kapasitas baris per tipe halaman (estimasi visual agar pas di A4)
+const LIMITS = {
+  FIRST_PAGE_ITEMS: 10,       // Lebih sedikit karena ada Header + Guest Info
+  MIDDLE_PAGE_ITEMS: 22,      // Maksimal karena hanya tabel
+  LAST_PAGE_COMBINED: 12,     // Sisa item + Payments + Summary
+  PAYMENTS_PER_PAGE: 25       // Jika pembayaran saja yang banyak
 };
 
 export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   const hotel = invoice.hotelSnap || settings;
   
-  // Calculations
   const subtotal = invoice.items.reduce((sum, item) => sum + (item.quantity * item.nights * item.unitPrice), 0);
   const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
   const balanceDue = subtotal - invoice.discount - totalPaid;
@@ -44,61 +45,108 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
     }
   };
 
-  // --- Pagination Logic ---
+  // --- LOGIKA PAGINATION LANJUTAN ---
   const pages = useMemo(() => {
-    const items = [...invoice.items];
-    const paymentsCount = invoice.payments.length;
-    
-    // Hitung "beban" vertikal pembayaran. 
-    // Jika ada pembayaran, tambahkan overhead (header tabel + spasi) + jumlah baris pembayaran.
-    const paymentRowsWeight = paymentsCount > 0 ? paymentsCount + 3 : 0; 
+    const allItems = [...invoice.items];
+    const allPayments = [...invoice.payments];
+    const generatedPages: PageData[] = [];
+    let currentPage = 1;
 
-    const result: { type: 'single' | 'first' | 'middle' | 'last', items: InvoiceItem[] }[] = [];
-
-    // Scenario 1: Semuanya muat di 1 halaman (Single Page)
-    if ((items.length + paymentRowsWeight) <= CONFIG.SINGLE_PAGE_COMBINED_LIMIT) {
-      result.push({ type: 'single', items });
-      return result;
+    // 1. Tentukan apakah semuanya muat di SATU halaman
+    const singlePageWeight = allItems.length + (allPayments.length > 0 ? allPayments.length + 3 : 0);
+    if (singlePageWeight <= LIMITS.FIRST_PAGE_ITEMS + 2) {
+      generatedPages.push({
+        pageNumber: 1,
+        isFirst: true,
+        isLast: true,
+        items: allItems,
+        payments: allPayments,
+        showSummary: true,
+        showGuestInfo: true
+      });
+      return generatedPages;
     }
 
-    // Scenario 2: Multi-page
-    // 1. Isi Halaman Pertama
-    const firstPageItems = items.splice(0, CONFIG.FIRST_PAGE_ITEM_LIMIT);
-    result.push({ type: 'first', items: firstPageItems });
+    // 2. Jika tidak muat, mulai proses multi-halaman
+    // Halaman Pertama
+    const firstPageItems = allItems.splice(0, LIMITS.FIRST_PAGE_ITEMS);
+    generatedPages.push({
+      pageNumber: currentPage++,
+      isFirst: true,
+      isLast: false,
+      items: firstPageItems,
+      payments: [],
+      showSummary: false,
+      showGuestInfo: true
+    });
 
-    // 2. Isi Halaman Tengah / Akhir
-    while (true) {
-       // Jika item sudah habis, tapi kita masuk loop ini (artinya single page gagal),
-       // maka kita butuh halaman terakhir khusus untuk Summary/Pembayaran.
-       if (items.length === 0) {
-         result.push({ type: 'last', items: [] });
-         break;
-       }
-
-       // Cek apakah sisa item + pembayaran muat di halaman terakhir
-       if ((items.length + paymentRowsWeight) <= CONFIG.LAST_PAGE_COMBINED_LIMIT) {
-         result.push({ type: 'last', items: items.splice(0) }); // Masukkan semua sisa ke hal terakhir
-         break;
-       }
-
-       // Jika tidak muat, buat halaman tengah (middle) yang isinya full item
-       result.push({ type: 'middle', items: items.splice(0, CONFIG.MIDDLE_PAGE_ITEM_LIMIT) });
+    // Halaman Tengah (Item)
+    while (allItems.length > LIMITS.LAST_PAGE_COMBINED) {
+      generatedPages.push({
+        pageNumber: currentPage++,
+        isFirst: false,
+        isLast: false,
+        items: allItems.splice(0, LIMITS.MIDDLE_PAGE_ITEMS),
+        payments: [],
+        showSummary: false,
+        showGuestInfo: false
+      });
     }
+
+    // Halaman Terakhir (Sisa Item + Payments + Summary)
+    // Cek apakah sisa item + sisa pembayaran muat di satu halaman terakhir
+    const lastPageWeight = allItems.length + (allPayments.length > 0 ? allPayments.length + 4 : 0);
     
-    return result;
+    if (lastPageWeight <= LIMITS.LAST_PAGE_COMBINED + 5) {
+      generatedPages.push({
+        pageNumber: currentPage++,
+        isFirst: false,
+        isLast: true,
+        items: allItems.splice(0),
+        payments: allPayments.splice(0),
+        showSummary: true,
+        showGuestInfo: false
+      });
+    } else {
+      // Jika sisa pembayaran terlalu banyak, pecah lagi
+      if (allItems.length > 0) {
+        generatedPages.push({
+          pageNumber: currentPage++,
+          isFirst: false,
+          isLast: false,
+          items: allItems.splice(0),
+          payments: [],
+          showSummary: false,
+          showGuestInfo: false
+        });
+      }
+
+      while (allPayments.length > 0) {
+        const isActuallyLast = allPayments.length <= LIMITS.PAYMENTS_PER_PAGE;
+        generatedPages.push({
+          pageNumber: currentPage++,
+          isFirst: false,
+          isLast: isActuallyLast,
+          items: [],
+          payments: allPayments.splice(0, LIMITS.PAYMENTS_PER_PAGE),
+          showSummary: isActuallyLast,
+          showGuestInfo: false
+        });
+      }
+    }
+
+    return generatedPages;
   }, [invoice.items, invoice.payments]);
 
   if (!hotel) return null;
 
   return (
     <div id="invoice-content">
-      {pages.map((page, pageIndex) => (
-        <div key={pageIndex} className="page-a4 p-[13mm] flex flex-col relative bg-white overflow-hidden text-black">
-          {/* Watermark/Accent */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -translate-y-24 translate-x-24 blur-3xl pointer-events-none print:hidden"></div>
-
-          {/* --- HEADER (Full on First/Single, Minimal on Middle/Last) --- */}
-          {(page.type === 'first' || page.type === 'single') ? (
+      {pages.map((page) => (
+        <div key={page.pageNumber} className="page-a4 p-[13mm] flex flex-col relative bg-white overflow-hidden text-black">
+          
+          {/* HEADER SECTION */}
+          {page.isFirst ? (
             <div className="relative mb-4">
               <div className="flex items-center justify-between gap-6 pb-4">
                 {hotel.logo && (
@@ -116,7 +164,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
               </div>
               <div className="border-b-[2px] border-black w-full mb-[1px]"></div>
               <div className="border-b-[0.5px] border-black w-full"></div>
-              
               <div className="text-center my-6">
                 <h2 className="text-lg font-serif font-bold text-black tracking-[0.3em] uppercase underline underline-offset-4 decoration-black">
                   INVOICE
@@ -124,21 +171,20 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
               </div>
             </div>
           ) : (
-            // Minimal Header for subsequent pages
             <div className="mb-6 border-b border-black/20 pb-2 flex justify-between items-end">
-               <div className="opacity-50 grayscale">
+               <div className="opacity-30 grayscale">
                  {hotel.logo && <img src={hotel.logo} alt="Logo" className="w-8 h-8 object-contain" />}
                </div>
                <div className="text-right">
                  <p className="text-[8px] font-bold text-black uppercase">{hotel.name}</p>
-                 <p className="text-[8px] text-slate-500">Invoice: {invoice.invoiceNumber} (Page {pageIndex + 1})</p>
+                 <p className="text-[8px] text-slate-500 italic">Folio: {invoice.invoiceNumber} — Hal {page.pageNumber} dari {pages.length}</p>
                </div>
             </div>
           )}
 
-          {/* --- GUEST DETAILS (Only First/Single Page) --- */}
-          {(page.type === 'first' || page.type === 'single') && (
-            <div className="grid grid-cols-2 gap-6 mb-6">
+          {/* GUEST INFO SECTION */}
+          {page.showGuestInfo && (
+            <div className="grid grid-cols-2 gap-6 mb-6 animate-fade-in">
               <div className="bg-white p-4 border border-black/10">
                 <h3 className="text-[8px] font-black uppercase tracking-widest text-black mb-2 border-b border-black pb-1">Guest</h3>
                 <div className="grid grid-cols-[65px_1fr] gap-y-1.5 text-[11px]">
@@ -179,7 +225,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             </div>
           )}
 
-          {/* --- ITEMS TABLE --- */}
+          {/* ITEMS TABLE */}
           <div className="flex-1">
             {page.items.length > 0 && (
               <div className="overflow-x-auto border border-black mb-4 shadow-sm bg-white">
@@ -195,7 +241,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                   </thead>
                   <tbody className="divide-y divide-black/20">
                     {page.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={item.id}>
                         <td className="py-2 px-6 text-black font-bold text-[11px]">{item.description}</td>
                         <td className="py-2 px-4 text-center text-black font-bold text-[11px]">{item.quantity}</td>
                         <td className="py-2 px-4 text-center text-black font-bold text-[11px]">{item.nights}</td>
@@ -203,11 +249,10 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                         <td className="py-2 px-6 text-right text-black font-black text-[11px]">Rp {formatCurrency(item.quantity * item.nights * item.unitPrice)}</td>
                       </tr>
                     ))}
-                    {/* Show "Continued..." if not last page */}
-                    {!(page.type === 'single' || page.type === 'last') && (
-                      <tr>
-                        <td colSpan={5} className="py-2 px-6 text-center text-[9px] italic text-slate-500 bg-slate-50">
-                          ... bersambung ke halaman berikutnya ...
+                    {!page.isLast && page.items.length > 0 && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={5} className="py-2 px-6 text-center text-[9px] italic text-slate-500 font-bold uppercase tracking-widest">
+                          --- bersambung ke halaman {page.pageNumber + 1} ---
                         </td>
                       </tr>
                     )}
@@ -215,34 +260,35 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 </table>
               </div>
             )}
-            
-            {/* If it's a 'last' page but no items (only summary), show a spacer or label if desired. 
-                Currently empty items list just renders nothing which is fine. */}
+
+            {/* PAYMENTS HISTORY */}
+            {page.payments.length > 0 && (
+              <div className="mb-4 px-4 py-2 bg-white border border-black/10">
+                <h3 className="text-[8px] font-black uppercase tracking-widest text-black mb-1 border-b border-black pb-0.5">Billing Activity / Payment History</h3>
+                <table className="w-full">
+                  <tbody className="divide-y divide-black/10">
+                    {page.payments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="py-1 text-[9px] text-black font-medium">{formatIndonesianDate(p.date)}</td>
+                        <td className="py-1 text-[9px] font-black text-black uppercase">{p.method}</td>
+                        <td className="py-1 text-[10px] text-black text-right font-black"> - Rp {formatCurrency(p.amount)}</td>
+                      </tr>
+                    ))}
+                    {!page.isLast && page.payments.length > 0 && (
+                      <tr>
+                        <td colSpan={3} className="py-1 text-center text-[8px] text-slate-400 italic">... pembayaran lainnya di halaman berikutnya ...</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* --- SUMMARY & FOOTER (Only Last/Single Page) --- */}
-          {(page.type === 'single' || page.type === 'last') && (
-            <div className="mt-auto">
-              {/* Payments History */}
-              {invoice.payments.length > 0 && (
-                <div className="mb-4 px-4 py-2 bg-white border border-black/10">
-                  <h3 className="text-[8px] font-black uppercase tracking-widest text-black mb-1 border-b border-black pb-0.5">Billing Activity</h3>
-                  <table className="w-full">
-                    <tbody className="divide-y divide-black/10">
-                      {invoice.payments.map((p) => (
-                        <tr key={p.id}>
-                          <td className="py-1 text-[9px] text-black font-medium">{formatIndonesianDate(p.date)}</td>
-                          <td className="py-1 text-[9px] font-black text-black uppercase">{p.method}</td>
-                          <td className="py-1 text-[10px] text-black text-right font-black"> - Rp {formatCurrency(p.amount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Totals Block */}
-              <div className="flex flex-row justify-between items-start pt-4 border-t border-black gap-6">
+          {/* SUMMARY & SIGNATURES (Only on the very last page) */}
+          {page.showSummary && (
+            <div className="mt-auto border-t border-black pt-4">
+              <div className="flex flex-row justify-between items-start gap-6">
                 <div className="flex-1 w-full">
                   {invoice.remarks && (
                     <div className="bg-white p-4 border border-black/10 shadow-sm mb-4">
@@ -259,6 +305,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                     <p className="text-black font-mono text-[10px] font-bold tracking-tight">BANK MANDIRI : 1770021861510</p>
                   </div>
                 </div>
+                
                 <div className="w-[200px] shrink-0">
                   <div className="space-y-1.5 p-2">
                     <div className="flex justify-between text-black text-[9px] font-bold uppercase">
@@ -284,7 +331,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 </div>
               </div>
 
-              {/* Signatures */}
               <div className="mt-10 grid grid-cols-2 gap-12 px-6 relative">
                 <div className="text-center">
                   <p className="text-[8px] font-black text-black uppercase tracking-widest mb-16">Guest Signature</p>
@@ -293,7 +339,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                 </div>
                 <div className="text-center relative">
                   <p className="text-[8px] font-black text-black uppercase tracking-widest mb-16">Receptionist / Cashier</p>
-                  
                   <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none flex items-center justify-center overflow-visible hide-on-physical-print">
                     {hotel.signature && (
                        <img src={hotel.signature} alt="Sign" className="absolute w-28 object-contain opacity-95 z-10 translate-y-2" />
@@ -302,7 +347,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
                        <img src={hotel.stamp} alt="Stamp" className="absolute w-28 object-contain opacity-70 rotate-[-15deg] -translate-x-6 -translate-y-2" />
                     )}
                   </div>
-
                   <div className="border-b border-black w-36 mx-auto"></div>
                   <p className="text-[9px] text-black mt-1 font-black uppercase">{invoice.cashierName || '________________'}</p>
                 </div>
