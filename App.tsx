@@ -210,7 +210,7 @@ const App: React.FC = () => {
     
     const opt = {
       margin: 0,
-      filename: `Invoice_${currentInvoice.invoiceNumber}.pdf`,
+      filename: `Invoice ${currentInvoice.invoiceNumber} - ${currentInvoice.guest.name || 'GUEST'}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
         scale: 2, 
@@ -392,97 +392,106 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-hidden flex flex-col relative">
         {viewMode === 'list' && (
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-[1600px] w-full mx-auto animate-fade-in">
-            <div className="flex justify-between items-end mb-6">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard</h2>
-                <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
-                  <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
-                </button>
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-[1600px] w-full mx-auto animate-fade-in flex flex-col h-full">
+            <div className="flex-1">
+              <div className="flex justify-between items-end mb-6">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard</h2>
+                  <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
+                    <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
+                  </button>
+                </div>
+                <div className="bg-slate-200 px-3 py-1 rounded-lg flex shadow-inner text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                  {filteredInvoices.length} Items
+                </div>
               </div>
-              <div className="bg-slate-200 px-3 py-1 rounded-lg flex shadow-inner text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                {filteredInvoices.length} Items
+
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  <div className="md:col-span-5 relative">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Cari Tamu / Invoice</label>
+                    <div className="relative">
+                      <svg className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                      <input 
+                        type="text" 
+                        placeholder="Cari nama tamu atau nomor invoice..." 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Filter Status</label>
+                    <select 
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all bg-white"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="all">Semua Status</option>
+                      <option value="draft">Draft</option>
+                      <option value="paid">Paid (Lunas)</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-4 flex justify-end">
+                     <button 
+                      onClick={() => { setSearchQuery(''); setStatusFilter('all'); setStartDate(''); setEndDate(''); }}
+                      className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2"
+                     >
+                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
+                       Atur Ulang Filter
+                     </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Dari Tanggal</label>
+                      <input 
+                        type="date" 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Sampai Tanggal</label>
+                      <input 
+                        type="date" 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
+              
+              <DesktopDashboardTable 
+                invoices={filteredInvoices} 
+                onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
+                formatCurrency={formatCurrency}
+                calculateTotal={calculateTotal}
+              />
+
+              <MobileDashboardList 
+                invoices={filteredInvoices} 
+                onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
+                formatCurrency={formatCurrency}
+                calculateTotal={calculateTotal}
+              />
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <div className="md:col-span-5 relative">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Cari Tamu / Invoice</label>
-                  <div className="relative">
-                    <svg className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    <input 
-                      type="text" 
-                      placeholder="Cari nama tamu atau nomor invoice..." 
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="md:col-span-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Filter Status</label>
-                  <select 
-                    className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all bg-white"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="all">Semua Status</option>
-                    <option value="draft">Draft</option>
-                    <option value="paid">Paid (Lunas)</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-4 flex justify-end">
-                   <button 
-                    onClick={() => { setSearchQuery(''); setStatusFilter('all'); setStartDate(''); setEndDate(''); }}
-                    className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2"
-                   >
-                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
-                     Atur Ulang Filter
-                   </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Dari Tanggal</label>
-                    <input 
-                      type="date" 
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Sampai Tanggal</label>
-                    <input 
-                      type="date" 
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <DesktopDashboardTable 
-              invoices={filteredInvoices} 
-              onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
-              formatCurrency={formatCurrency}
-              calculateTotal={calculateTotal}
-            />
-
-            <MobileDashboardList 
-              invoices={filteredInvoices} 
-              onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
-              formatCurrency={formatCurrency}
-              calculateTotal={calculateTotal}
-            />
+            {/* Global Dashboard Footer */}
+            <footer className="mt-8 pb-6 text-center">
+              <p className="text-[10px] lg:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+                Copyright 2026 by <a href="https://www.vell.web.id" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">VELL</a>
+              </p>
+            </footer>
           </div>
         )}
 
@@ -530,7 +539,7 @@ const App: React.FC = () => {
                 <button onClick={() => setViewMode('create')} className="px-3 py-2 border border-slate-200 rounded-xl text-[10px] lg:text-xs font-bold text-slate-600 hover:bg-slate-50">Edit</button>
                 <button onClick={() => window.print()} className="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-[10px] lg:text-xs font-bold hover:bg-slate-300">Print</button>
                 <button onClick={downloadPDF} className="bg-slate-900 text-white px-4 lg:px-6 py-2 rounded-xl text-[10px] lg:text-xs font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4 4m4 4V4" /></svg>
                   <span className="hidden xs:inline">Simpan PDF</span>
                   <span className="xs:hidden">PDF</span>
                 </button>
