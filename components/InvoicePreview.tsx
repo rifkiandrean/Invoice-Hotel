@@ -43,7 +43,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   return (
     <div id="invoice-content" className="page-a4 p-[12mm] flex flex-col relative bg-white overflow-hidden text-black leading-tight">
       
-      {/* 1. Letterhead - Optimized for single-line address */}
+      {/* 1. Letterhead - Optimized for true centering with symmetric padding */}
       <div className="relative w-full flex flex-col items-center justify-center pt-1 pb-4 min-h-[110px]">
         {hotel.logo && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2">
@@ -55,7 +55,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           </div>
         )}
         
-        <div className="flex flex-col items-center text-center w-full pl-32 pr-8">
+        <div className="flex flex-col items-center text-center w-full px-24">
           <h1 className="text-[20pt] font-serif font-black tracking-tight text-slate-900 mb-1 uppercase leading-none whitespace-nowrap">
             {hotel.name}
           </h1>
