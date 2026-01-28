@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Invoice, HotelSettings } from '../types';
 
@@ -42,7 +43,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   return (
     <div id="invoice-content" className="page-a4 p-[12mm] flex flex-col relative bg-white overflow-hidden text-black leading-tight">
       
-      {/* 1. Letterhead - Tightened padding */}
+      {/* 1. Letterhead - Optimized for single-line address */}
       <div className="relative w-full flex flex-col items-center justify-center pt-1 pb-4 min-h-[110px]">
         {hotel.logo && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2">
@@ -54,11 +55,11 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
           </div>
         )}
         
-        <div className="flex flex-col items-center text-center w-full pl-40 pr-16">
+        <div className="flex flex-col items-center text-center w-full pl-32 pr-8">
           <h1 className="text-[20pt] font-serif font-black tracking-tight text-slate-900 mb-1 uppercase leading-none whitespace-nowrap">
             {hotel.name}
           </h1>
-          <p className="text-[8pt] font-bold text-slate-800 uppercase tracking-wide leading-tight mb-1 max-w-[500px]">
+          <p className="text-[8pt] font-bold text-slate-800 uppercase tracking-wide leading-tight mb-1 whitespace-nowrap">
             {hotel.address}
           </p>
           <p className="text-[7.5pt] font-semibold text-slate-700 uppercase tracking-tight whitespace-nowrap">
