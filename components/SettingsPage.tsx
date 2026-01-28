@@ -161,6 +161,17 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                 />
               </div>
 
+              <div className="col-span-full">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nomor Rekening Hotel</label>
+                <input
+                  type="text"
+                  value={formData.bankInfo || ''}
+                  placeholder="Contoh: Bank BCA - 1234567890 a/n BLUE ORCHID"
+                  onChange={(e) => setFormData({...formData, bankInfo: e.target.value})}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
+
               {canManageAccounts && (
                 <div className="col-span-full border-t border-slate-100 pt-6">
                   <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">

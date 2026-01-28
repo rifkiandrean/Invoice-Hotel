@@ -37,6 +37,9 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
 
   if (!hotel) return null;
 
+  // Extract unique payment methods
+  const paymentMethods = Array.from(new Set((invoice.payments || []).map(p => p.method)));
+
   return (
     <div id="invoice-content" className="page-a4 p-[12mm] flex flex-col relative bg-white overflow-hidden text-black leading-tight">
       
@@ -81,7 +84,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       <div className="grid grid-cols-2 gap-6 mb-8 items-stretch">
         {/* Guest Box - Tidy Alignment */}
         <div className="border border-slate-300 p-4 rounded-sm flex flex-col">
-          <h3 className="text-[7pt] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4">BILL TO</h3>
+          <h3 className="text-[7pt] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4">GUEST</h3>
           <div className="space-y-2 text-[10pt]">
             <div className="flex">
               <span className="w-20 shrink-0 font-bold text-slate-500 text-[9pt]">Name</span>
@@ -165,6 +168,30 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         {/* 6. Totals & Summaries */}
         <div className="mt-8 flex justify-between gap-10">
           <div className="flex-1">
+            {/* Added: Payment Methods (Metode Pembayaran) */}
+            {paymentMethods.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[7pt] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">METODE PEMBAYARAN</p>
+                <div className="flex flex-wrap gap-2">
+                  {paymentMethods.map(method => (
+                    <span key={method} className="text-[9pt] font-bold text-slate-900 bg-slate-100 border border-slate-200 px-3 py-1 rounded-sm uppercase">
+                      {method}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Added: Bank Account Info (Nomor Rekening Hotel) - Displayed below Payment Methods */}
+            {hotel.bankInfo && (
+              <div className="mb-6">
+                <p className="text-[7pt] font-black text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-100 pb-1">REKENING PEMBAYARAN</p>
+                <p className="text-[9pt] font-bold text-slate-800 uppercase leading-tight">
+                  {hotel.bankInfo}
+                </p>
+              </div>
+            )}
+
             {invoice.remarks && (
               <div className="bg-slate-50/50 p-4 border border-slate-200 rounded-sm">
                 <p className="text-[7pt] font-black text-slate-400 uppercase tracking-widest mb-1">NOTES / REMARKS</p>
@@ -173,7 +200,7 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             )}
           </div>
 
-          <div className="w-[300px] shrink-0 border border-slate-300 rounded-sm overflow-hidden">
+          <div className="w-[300px] shrink-0 border border-slate-300 rounded-sm overflow-hidden h-fit">
             <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-100">
               <span className="font-bold text-slate-500 uppercase">SUBTOTAL</span>
               <span className="font-bold">Rp {formatCurrency(subtotal)}</span>
@@ -187,6 +214,10 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
             <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-100 text-emerald-700 bg-emerald-50/20">
               <span className="font-bold uppercase">PAID / DEPOSIT</span>
               <span className="font-bold">- Rp {formatCurrency(totalPaid)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 text-[9pt] border-b border-slate-100">
+              <span className="font-bold text-slate-500 uppercase">Total Bayar</span>
+              <span className="font-bold text-slate-900">Rp {formatCurrency(totalCharge)}</span>
             </div>
             <div className="flex justify-between px-4 py-4 bg-slate-900 text-white">
               <span className="text-[10pt] font-black uppercase tracking-widest">BALANCE DUE</span>

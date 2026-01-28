@@ -8,6 +8,7 @@ export const HOTEL_INFO = {
   email: 'hotelpangandaranblueorchid@gmail.com',
   website: '-',
   logo: './logo.png',
+  bankInfo: 'Bank Mandiri: 1770021861510 a.n BLUE ORCHID HOSPITAL',
   supabaseUrl: 'https://jdnbyrxburhwuzwqmjki.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkbmJ5cnhidXJod3V6d3FtamtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMDIyMDEsImV4cCI6MjA4NDU3ODIwMX0.tDhRWoKJr-E8kEV4zE9-AIBKa9_sih8_bWTlGaplNLQ'
 };

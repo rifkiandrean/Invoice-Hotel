@@ -16,6 +16,7 @@ export interface HotelSettings {
   email: string;
   website: string;
   logo: string;
+  bankInfo?: string;
   signature?: string;
   stamp?: string;
   defaultTaxRate: number;
