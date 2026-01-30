@@ -59,6 +59,7 @@ export interface StayDetails {
 
 export interface Invoice {
   id: string;
+  category: 'hotel' | 'villa';
   invoiceNumber: string;
   date: string;
   guest: GuestInfo;

@@ -110,13 +110,14 @@ export const uploadAsset = async (file: File, settings: HotelSettings, folder: s
   }
 };
 
-export const fetchSettingsFromSupabase = async (settings: HotelSettings): Promise<HotelSettings | null> => {
+export const fetchSettingsFromSupabase = async (category: string, settings: HotelSettings): Promise<HotelSettings | null> => {
   const client = getSupabaseClient(settings);
   try {
+    const profileId = category === 'villa' ? 'villa_profile' : 'hotel_profile';
     const { data, error } = await client
       .from('settings')
       .select('data')
-      .eq('id', 'hotel_profile')
+      .eq('id', profileId)
       .maybeSingle();
 
     if (error) throw error;
@@ -136,7 +137,14 @@ export const fetchInvoicesFromSupabase = async (settings: HotelSettings): Promis
       .order('updated_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map((row: any) => row.data as Invoice);
+    // Map existing data and ensure 'category' exists, defaulting to 'hotel' for legacy records
+    return (data || []).map((row: any) => {
+      const invoiceData = row.data as Invoice;
+      return {
+        ...invoiceData,
+        category: invoiceData.category || 'hotel'
+      };
+    });
   } catch (err) {
     console.error("Fetch Invoices Error:", err);
     return [];
@@ -163,14 +171,14 @@ export const upsertInvoiceToSupabase = async (invoice: Invoice, settings: HotelS
   }
 };
 
-export const saveSettingsToSupabase = async (hotelSettings: HotelSettings): Promise<boolean> => {
+export const saveSettingsToSupabase = async (category: string, hotelSettings: HotelSettings): Promise<boolean> => {
   const client = getSupabaseClient(hotelSettings);
   try {
-    // Simplify payload to ensure column compatibility
+    const profileId = category === 'villa' ? 'villa_profile' : 'hotel_profile';
     const { error } = await client
       .from('settings')
       .upsert({ 
-        id: 'hotel_profile', 
+        id: profileId, 
         data: hotelSettings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });

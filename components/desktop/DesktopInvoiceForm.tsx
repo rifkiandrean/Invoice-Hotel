@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Invoice, InvoiceItem, Payment } from '../../types';
-import { ROOM_TYPES, GUEST_TYPES, PAYMENT_METHODS } from '../../constants';
+import { GUEST_TYPES, PAYMENT_METHODS } from '../../constants';
 import { InvoiceItemRow } from '../InvoiceItemRow';
 import { PaymentRow } from '../PaymentRow';
 
@@ -23,12 +23,14 @@ interface Props {
     paid: number;
     balance: number;
   };
+  roomTypes: string[];
 }
 
 export const DesktopInvoiceForm: React.FC<Props> = ({
   invoice, setInvoice, onSave, onCancel,
   onUpdateItem, onDeleteItem, onUpdatePayment, onDeletePayment,
-  onGenerateAINote, isGeneratingNote, formatCurrency, calculations
+  onGenerateAINote, isGeneratingNote, formatCurrency, calculations,
+  roomTypes
 }) => {
   return (
     <div className="hidden md:flex flex-row gap-4 h-full animate-fade-in max-w-[1600px] w-full mx-auto p-6">
@@ -69,7 +71,7 @@ export const DesktopInvoiceForm: React.FC<Props> = ({
             <div className="col-span-6">
               <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block">Tipe Kamar</label>
               <select className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium focus:ring-2 focus:ring-indigo-500 outline-none" value={invoice.stay.roomType} onChange={e => setInvoice({...invoice, stay: {...invoice.stay, roomType: e.target.value}})}>
-                {ROOM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {roomTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="col-span-6">

@@ -8,7 +8,7 @@ import { MobileDashboardList } from './components/mobile/MobileDashboardList';
 import { DesktopDashboardTable } from './components/desktop/DesktopDashboardTable';
 import { MobileInvoiceForm } from './components/mobile/MobileInvoiceForm';
 import { DesktopInvoiceForm } from './components/desktop/DesktopInvoiceForm';
-import { ROOM_TYPES, GUEST_TYPES, HOTEL_INFO, TAX_RATE } from './constants';
+import { ROOM_TYPES, VILLA_ROOM_TYPES, GUEST_TYPES, HOTEL_INFO, VILLA_INFO, TAX_RATE } from './constants';
 import { 
   fetchInvoicesFromSupabase, 
   upsertInvoiceToSupabase, 
@@ -23,7 +23,7 @@ import { generatePersonalizedNote } from './services/geminiService';
 declare var html2pdf: any;
 
 const INITIAL_GUEST = { name: '', email: '', phone: '', address: '' };
-const INITIAL_STAY = { roomNumber: '', roomType: ROOM_TYPES[0], guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
+const INITIAL_STAY = { roomNumber: '', roomType: '', guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
 
 const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
 
@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [activeCategory, setActiveCategory] = useState<'hotel' | 'villa'>('hotel');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
@@ -45,11 +46,20 @@ const App: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const [settings, setSettings] = useState<HotelSettings>({
+  const [hotelSettings, setHotelSettings] = useState<HotelSettings>({
     ...HOTEL_INFO,
     defaultTaxRate: TAX_RATE,
     settingsPin: "1234"
   });
+
+  const [villaSettings, setVillaSettings] = useState<HotelSettings>({
+    ...VILLA_INFO,
+    defaultTaxRate: TAX_RATE,
+    settingsPin: "1234"
+  });
+
+  const activeSettings = activeCategory === 'villa' ? villaSettings : hotelSettings;
+  const activeRoomTypes = activeCategory === 'villa' ? VILLA_ROOM_TYPES : ROOM_TYPES;
 
   useEffect(() => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
@@ -75,18 +85,28 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadCloudSettings = useCallback(async () => {
+  const loadCloudSettings = useCallback(async (category: 'hotel' | 'villa') => {
     if (!session) return;
     setSyncStatus('syncing');
     try {
-      const cloudSettings = await fetchSettingsFromSupabase(settings);
+      const currentConfig = category === 'villa' ? villaSettings : hotelSettings;
+      const cloudSettings = await fetchSettingsFromSupabase(category, currentConfig);
       if (cloudSettings) {
-        setSettings(prev => ({ 
-          ...prev, 
-          ...cloudSettings,
-          supabaseUrl: HOTEL_INFO.supabaseUrl,
-          supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
-        }));
+        if (category === 'hotel') {
+          setHotelSettings(prev => ({ 
+            ...prev, 
+            ...cloudSettings,
+            supabaseUrl: HOTEL_INFO.supabaseUrl,
+            supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
+          }));
+        } else {
+          setVillaSettings(prev => ({ 
+            ...prev, 
+            ...cloudSettings,
+            supabaseUrl: HOTEL_INFO.supabaseUrl,
+            supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
+          }));
+        }
         setSyncStatus('success');
       }
     } catch (error) {
@@ -95,19 +115,20 @@ const App: React.FC = () => {
     } finally {
       setTimeout(() => setSyncStatus('idle'), 2000);
     }
-  }, [session]);
+  }, [session, hotelSettings, villaSettings]);
 
   useEffect(() => {
     if (session) {
-      loadCloudSettings();
+      loadCloudSettings('hotel');
+      loadCloudSettings('villa');
     }
-  }, [session, loadCloudSettings]);
+  }, [session]);
 
   const syncFromSupabase = useCallback(async () => {
     if (!session) return;
     setSyncStatus('syncing');
     try {
-      const cloudInvoices = await fetchInvoicesFromSupabase(settings);
+      const cloudInvoices = await fetchInvoicesFromSupabase(activeSettings);
       setInvoices(cloudInvoices);
       setSyncStatus('success');
     } catch (error) {
@@ -115,26 +136,27 @@ const App: React.FC = () => {
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
-  }, [session, settings]);
+  }, [session, activeSettings]);
 
   useEffect(() => {
     if (viewMode === 'list' && session) {
       syncFromSupabase();
     }
-  }, [viewMode, syncFromSupabase, session]);
+  }, [viewMode, syncFromSupabase, session, activeCategory]);
 
   const handleSaveSettings = async (newSettings: HotelSettings) => {
     if (session) {
       setSyncStatus('syncing');
-      const success = await saveSettingsToSupabase(newSettings);
+      const success = await saveSettingsToSupabase(activeCategory, newSettings);
       if (success) {
-        setSettings(newSettings);
+        if (activeCategory === 'hotel') setHotelSettings(newSettings);
+        else setVillaSettings(newSettings);
         setSyncStatus('success');
         alert('Pengaturan berhasil disimpan ke cloud!');
       } else {
         setSyncStatus('error');
         alert('Gagal menyimpan ke cloud. Periksa koneksi atau database.');
-        loadCloudSettings(); 
+        loadCloudSettings(activeCategory); 
       }
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
@@ -171,14 +193,14 @@ const App: React.FC = () => {
       return;
     }
 
-    const finalizedInvoice = { ...currentInvoice, hotelSnap: settings };
+    const finalizedInvoice = { ...currentInvoice, hotelSnap: activeSettings };
     
     setCurrentInvoice(finalizedInvoice);
     setViewMode('view');
 
     if (session) {
       setSyncStatus('syncing');
-      const success = await upsertInvoiceToSupabase(finalizedInvoice, settings);
+      const success = await upsertInvoiceToSupabase(finalizedInvoice, activeSettings);
       if (success) {
         setSyncStatus('success');
         syncFromSupabase();
@@ -264,27 +286,29 @@ const App: React.FC = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const lastCashier = invoices.length > 0 ? invoices[0].cashierName : '';
     const currentYear = new Date().getFullYear();
-    const prefix = `INV-${currentYear}-`;
+    const prefix = `${activeCategory === 'villa' ? 'VIL' : 'INV'}-${currentYear}-`;
     const sequenceNumbers = invoices
-      .filter(inv => inv.invoiceNumber.startsWith(prefix))
+      .filter(inv => inv.category === activeCategory && inv.invoiceNumber.startsWith(prefix))
       .map(inv => parseInt(inv.invoiceNumber.split('-').pop() || '0', 10));
     const nextSequence = (sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) : 0) + 1;
     
     setCurrentInvoice({
       id,
+      category: activeCategory,
       invoiceNumber: `${prefix}${nextSequence.toString().padStart(4, '0')}`,
       date: new Date().toISOString().split('T')[0],
       guest: { ...INITIAL_GUEST },
-      stay: { ...INITIAL_STAY },
+      stay: { ...INITIAL_STAY, roomType: activeRoomTypes[0] },
       items: [{ id: '1', description: '', quantity: 1, nights: 1, unitPrice: 0, total: 0 }],
       payments: [],
-      taxRate: 0, discount: 0, status: 'draft', notes: '', remarks: '', hotelSnap: settings,
+      taxRate: 0, discount: 0, status: 'draft', notes: '', remarks: '', hotelSnap: activeSettings,
       cashierName: lastCashier || ''
     });
     setViewMode('create');
   };
 
   const filteredInvoices = invoices.filter(inv => {
+    const matchesCategory = inv.category === activeCategory;
     const matchesSearch = 
       inv.guest.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase());
@@ -294,7 +318,7 @@ const App: React.FC = () => {
     const matchesStartDate = !startDate || inv.date >= startDate;
     const matchesEndDate = !endDate || inv.date <= endDate;
 
-    return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesCategory && matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
   const handleSettingsClick = () => {
@@ -304,7 +328,7 @@ const App: React.FC = () => {
   };
 
   const handlePinSubmit = (val: string) => {
-    const targetPin = settings.settingsPin || "1234";
+    const targetPin = activeSettings.settingsPin || "1234";
     if (val === targetPin) {
       setShowPinModal(false);
       setViewMode('settings');
@@ -325,7 +349,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (!session) return <Auth hotelName={settings.name} />;
+  if (!session) return <Auth hotelName={activeSettings.name} />;
 
   const invoiceCalculations = currentInvoice ? {
     subtotal: calculateSubtotal(currentInvoice),
@@ -339,7 +363,7 @@ const App: React.FC = () => {
       <header className="bg-white border-b border-slate-200 h-14 shrink-0 flex items-center z-50 no-print">
         <div className="max-w-[1600px] w-full mx-auto px-4 lg:px-6 flex justify-between items-center">
           <div className="flex items-center gap-2 lg:gap-6">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setViewMode('list')}>
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('list'); setActiveCategory('hotel'); }}>
               <div className="bg-indigo-600 p-1.5 rounded-lg shrink-0">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
               </div>
@@ -347,12 +371,23 @@ const App: React.FC = () => {
                 <h1 className="text-base lg:text-lg font-black text-slate-900 hidden xs:block tracking-tighter">HotelFlow</h1>
                 <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
                 <h2 className="text-[11px] lg:text-xs font-bold text-indigo-600 uppercase tracking-widest hidden md:block line-clamp-1 max-w-[200px] lg:max-w-none">
-                  {settings.name}
+                  {activeSettings.name}
                 </h2>
               </div>
             </div>
             <nav className="flex items-center gap-0.5 lg:gap-1">
-              <button onClick={() => setViewMode('list')} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Beranda</button>
+              <button 
+                onClick={() => { setActiveCategory('hotel'); setViewMode('list'); }} 
+                className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'list' && activeCategory === 'hotel' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                Hotel & Cottage
+              </button>
+              <button 
+                onClick={() => { setActiveCategory('villa'); setViewMode('list'); }} 
+                className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${activeCategory === 'villa' && viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                Villa
+              </button>
               <button onClick={handleSettingsClick} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
             </nav>
           </div>
@@ -396,7 +431,7 @@ const App: React.FC = () => {
             <div className="flex-1">
               <div className="flex justify-between items-end mb-6">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard</h2>
+                  <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard {activeCategory === 'villa' ? 'Villa' : 'Hotel'}</h2>
                   <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
                     <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
                   </button>
@@ -510,6 +545,7 @@ const App: React.FC = () => {
                isGeneratingNote={isGeneratingNote}
                formatCurrency={formatCurrency}
                calculations={invoiceCalculations}
+               roomTypes={activeRoomTypes}
              />
              <DesktopInvoiceForm 
                invoice={currentInvoice}
@@ -524,6 +560,7 @@ const App: React.FC = () => {
                isGeneratingNote={isGeneratingNote}
                formatCurrency={formatCurrency}
                calculations={invoiceCalculations}
+               roomTypes={activeRoomTypes}
              />
           </div>
         )}
@@ -547,7 +584,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex-1 overflow-y-auto print:bg-white print:p-0 print:overflow-visible print:h-auto custom-scrollbar bg-slate-200/50">
               <div className="invoice-preview-container">
-                <InvoicePreview invoice={currentInvoice} settings={settings} />
+                <InvoicePreview invoice={currentInvoice} settings={activeSettings} />
               </div>
             </div>
           </div>
@@ -555,8 +592,14 @@ const App: React.FC = () => {
 
         {viewMode === 'settings' && (
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in">
+            <div className="max-w-4xl mx-auto mb-4 bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between">
+              <h2 className="text-indigo-900 font-black text-sm uppercase tracking-widest">
+                Pengaturan {activeCategory === 'villa' ? 'Villa' : 'Hotel'}
+              </h2>
+              <span className="text-[10px] text-indigo-400 font-bold uppercase italic">Ubah Profil & Nomor Rekening Sesuai Kategori</span>
+            </div>
             <SettingsPage 
-              settings={settings} 
+              settings={activeSettings} 
               onSave={handleSaveSettings} 
               currentUserRole={userProfile?.role} 
             />
@@ -571,7 +614,7 @@ const App: React.FC = () => {
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Akses Terbatas</h3>
-            <p className="text-sm text-slate-500 mb-8 font-medium">Masukkan 4 digit PIN untuk membuka Pengaturan</p>
+            <p className="text-sm text-slate-500 mb-8 font-medium">Masukkan PIN untuk {activeSettings.name}</p>
             
             <div className="flex justify-center gap-4 mb-8">
               {[0, 1, 2, 3].map((i) => (
