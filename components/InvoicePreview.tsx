@@ -35,6 +35,20 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
     }
   };
 
+  const formatShortDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      return new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: '2-digit'
+      }).format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // Group items by date
   const groupItemsByDate = (items: InvoiceItem[]) => {
     const sortedItems = [...items].sort((a, b) => {
@@ -57,9 +71,6 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
   const groupedItems = groupItemsByDate(invoice.items);
 
   if (!hotel) return null;
-
-  // Extract unique payment methods
-  const paymentMethods = Array.from(new Set((invoice.payments || []).map(p => p.method)));
 
   return (
     <div id="invoice-content" className="page-a4 p-[12mm] flex flex-col relative bg-white overflow-hidden text-black leading-tight">
@@ -196,13 +207,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         <div className="mt-6 flex justify-between gap-10">
           <div className="flex-1">
             {/* Payment Methods */}
-            {paymentMethods.length > 0 && (
+            {(invoice.payments || []).length > 0 && (
               <div className="mb-3">
                 <p className="text-[7pt] font-black text-slate-400 uppercase tracking-widest mb-1.5 border-b border-slate-100 pb-1">METODE PEMBAYARAN</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {paymentMethods.map(method => (
-                    <span key={method} className="text-[8pt] font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-sm uppercase">
-                      {method}
+                  {(invoice.payments || []).map((p, idx) => (
+                    <span key={p.id || idx} className="text-[8pt] font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-sm uppercase">
+                      {p.method} <span className="text-slate-500 font-normal">({formatShortDate(p.date)})</span>
                     </span>
                   ))}
                 </div>
