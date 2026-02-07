@@ -18,6 +18,7 @@ export const MobileDashboardList: React.FC<Props> = ({ invoices, onSelect, forma
             <div className="flex-1">
               <span className="text-[10px] font-mono text-indigo-600 font-bold block mb-0.5 tracking-tight">{inv.invoiceNumber}</span>
               <h4 className="font-bold text-slate-900 text-sm leading-tight uppercase">{inv.guest.name}</h4>
+              {inv.guest.company && <div className="text-[10px] text-slate-500 font-semibold uppercase mt-0.5">{inv.guest.company}</div>}
             </div>
             <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
               inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 

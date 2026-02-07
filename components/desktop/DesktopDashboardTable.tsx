@@ -29,7 +29,10 @@ export const DesktopDashboardTable: React.FC<Props> = ({ invoices, onSelect, for
             invoices.map(inv => (
               <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onSelect(inv)}>
                 <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inv.invoiceNumber}</td>
-                <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.guest.name}</td>
+                <td className="px-6 py-4">
+                  <div className="font-bold text-slate-700 uppercase">{inv.guest.name}</div>
+                  {inv.guest.company && <div className="text-[10px] text-slate-500 font-semibold uppercase">{inv.guest.company}</div>}
+                </td>
                 <td className="px-6 py-4 text-right font-bold text-slate-900">Rp {formatCurrency(calculateTotal(inv))}</td>
                 <td className="px-6 py-4 text-center">
                   <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${

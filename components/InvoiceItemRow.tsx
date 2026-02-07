@@ -20,7 +20,16 @@ export const InvoiceItemRow: React.FC<Props> = ({ item, onUpdate, onDelete }) =>
 
   return (
     <div className="flex flex-col sm:grid sm:grid-cols-12 gap-2 items-center mb-4 sm:mb-2 group bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-xl sm:rounded-none border sm:border-0 border-slate-100">
-      <div className="w-full sm:col-span-4 relative">
+      <div className="w-full sm:col-span-2 relative">
+        <label className="sm:hidden text-[8px] font-bold text-slate-400 uppercase mb-1 block">Tanggal</label>
+        <input
+          type="date"
+          value={item.date || ''}
+          onChange={(e) => onUpdate(item.id, { date: e.target.value })}
+          className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none bg-white"
+        />
+      </div>
+      <div className="w-full sm:col-span-3 relative">
         <label className="sm:hidden text-[8px] font-bold text-slate-400 uppercase mb-1 block">Deskripsi Layanan</label>
         <input
           type="text"
@@ -69,7 +78,7 @@ export const InvoiceItemRow: React.FC<Props> = ({ item, onUpdate, onDelete }) =>
         </div>
       </div>
       <div className="w-full flex justify-between sm:contents mt-2 sm:mt-0 items-center">
-        <div className="sm:col-span-3 text-right font-bold text-slate-700 text-xs flex-1">
+        <div className="sm:col-span-2 text-right font-bold text-slate-700 text-xs flex-1">
           <span className="sm:hidden text-slate-400 font-normal mr-2">Total:</span>
           Rp {formatCurrency(item.quantity * item.nights * item.unitPrice)}
         </div>

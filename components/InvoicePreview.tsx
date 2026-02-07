@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Invoice, HotelSettings } from '../types';
+import { Invoice, HotelSettings, InvoiceItem } from '../types';
 
 interface Props {
   invoice: Invoice;
@@ -34,6 +34,27 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
       return dateStr;
     }
   };
+
+  // Group items by date
+  const groupItemsByDate = (items: InvoiceItem[]) => {
+    const sortedItems = [...items].sort((a, b) => {
+       const dateA = a.date || '0000-00-00';
+       const dateB = b.date || '0000-00-00';
+       return dateA.localeCompare(dateB);
+    });
+
+    const grouped: { [key: string]: InvoiceItem[] } = {};
+    sortedItems.forEach(item => {
+      const dateKey = item.date || 'No Date';
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(item);
+    });
+    return grouped;
+  };
+
+  const groupedItems = groupItemsByDate(invoice.items);
 
   if (!hotel) return null;
 
@@ -89,6 +110,13 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
               <span className="mr-3 text-slate-400">:</span>
               <span className="flex-1 font-black uppercase text-slate-900">{invoice.guest.name || '-'}</span>
             </div>
+            {invoice.guest.company && (
+            <div className="flex">
+              <span className="w-20 shrink-0 font-bold text-slate-500 text-[8pt]">Company</span>
+              <span className="mr-3 text-slate-400">:</span>
+              <span className="flex-1 font-bold uppercase text-slate-800">{invoice.guest.company}</span>
+            </div>
+            )}
             <div className="flex">
               <span className="w-20 shrink-0 font-bold text-slate-500 text-[8pt]">Address</span>
               <span className="mr-3 text-slate-400">:</span>
@@ -128,39 +156,41 @@ export const InvoicePreview: React.FC<Props> = ({ invoice, settings }) => {
         </div>
       </div>
 
-      {/* 5. Main Billing Table - Reduced row padding */}
-      <div className="flex-1">
-        <table className="w-full text-left border-collapse border border-slate-300">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-300">
-              <th className="py-2 px-4 text-[7.5pt] font-black uppercase border-r border-slate-300">DESCRIPTION</th>
-              <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-center border-r border-slate-300">QTY</th>
-              <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-center border-r border-slate-300">NIGHTS</th>
-              <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-right border-r border-slate-300">UNIT PRICE</th>
-              <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-right">TOTAL AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {invoice.items.map((item) => (
-              <tr key={item.id} className="text-[9pt]">
-                <td className="py-2 px-4 font-bold text-slate-900 uppercase border-r border-slate-300">{item.description}</td>
-                <td className="py-2 px-4 text-center border-r border-slate-300">{item.quantity}</td>
-                <td className="py-2 px-4 text-center border-r border-slate-300">{item.nights}</td>
-                <td className="py-2 px-4 text-right border-r border-slate-300">Rp {formatCurrency(item.unitPrice)}</td>
-                <td className="py-2 px-4 font-black text-slate-900 text-right">Rp {formatCurrency(item.quantity * item.nights * item.unitPrice)}</td>
-              </tr>
-            ))}
-            {[...Array(Math.max(0, 3 - invoice.items.length))].map((_, i) => (
-              <tr key={`empty-${i}`} className="h-8">
-                <td className="border-r border-slate-300"></td>
-                <td className="border-r border-slate-300"></td>
-                <td className="border-r border-slate-300"></td>
-                <td className="border-r border-slate-300"></td>
-                <td></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* 5. Main Billing Tables - Grouped by Date */}
+      <div className="flex-1 space-y-4">
+        {Object.keys(groupedItems).map((dateKey) => (
+          <div key={dateKey} className="mb-4">
+            <div className="mb-1 text-[9pt] font-bold uppercase text-slate-600 bg-slate-100 px-2 py-1 inline-block rounded-sm">
+              {dateKey === 'No Date' ? 'Item Lainnya' : formatIndonesianDate(dateKey)}
+            </div>
+            <table className="w-full text-left border-collapse border border-slate-300">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-300">
+                  <th className="py-2 px-4 text-[7.5pt] font-black uppercase border-r border-slate-300">DESCRIPTION</th>
+                  <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-center border-r border-slate-300">QTY</th>
+                  <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-center border-r border-slate-300">NIGHTS</th>
+                  <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-right border-r border-slate-300">UNIT PRICE</th>
+                  <th className="py-2 px-4 text-[7.5pt] font-black uppercase text-right">TOTAL AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {groupedItems[dateKey].map((item) => (
+                  <tr key={item.id} className="text-[9pt]">
+                    <td className="py-2 px-4 font-bold text-slate-900 uppercase border-r border-slate-300">{item.description}</td>
+                    <td className="py-2 px-4 text-center border-r border-slate-300">{item.quantity}</td>
+                    <td className="py-2 px-4 text-center border-r border-slate-300">{item.nights}</td>
+                    <td className="py-2 px-4 text-right border-r border-slate-300">Rp {formatCurrency(item.unitPrice)}</td>
+                    <td className="py-2 px-4 font-black text-slate-900 text-right">Rp {formatCurrency(item.quantity * item.nights * item.unitPrice)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+        
+        {invoice.items.length === 0 && (
+           <div className="py-8 text-center text-slate-300 text-xs italic border border-dashed border-slate-200">Belum ada item layanan.</div>
+        )}
 
         {/* 6. Totals & Summaries - Reduced margin and tightened internal spacing */}
         <div className="mt-6 flex justify-between gap-10">

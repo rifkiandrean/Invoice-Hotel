@@ -46,6 +46,10 @@ export const DesktopInvoiceForm: React.FC<Props> = ({
               <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block">Nama Lengkap</label>
               <input type="text" className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-500 outline-none" value={invoice.guest.name} onChange={e => setInvoice({...invoice, guest: {...invoice.guest, name: e.target.value.toUpperCase()}})} placeholder="NAMA LENGKAP" />
             </div>
+            <div className="col-span-2">
+              <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block">Instansi / Company</label>
+              <input type="text" className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-500 outline-none" value={invoice.guest.company || ''} onChange={e => setInvoice({...invoice, guest: {...invoice.guest, company: e.target.value.toUpperCase()}})} placeholder="NAMA PERUSAHAAN" />
+            </div>
             <div>
               <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block">Telepon / WA</label>
               <input type="text" className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" value={invoice.guest.phone} onChange={e => setInvoice({...invoice, guest: {...invoice.guest, phone: e.target.value}})} placeholder="0812..." />
@@ -106,14 +110,15 @@ export const DesktopInvoiceForm: React.FC<Props> = ({
               <span className="w-5 h-5 bg-emerald-50 text-emerald-600 rounded-md flex items-center justify-center text-[10px]">03</span>
               Layanan & Fasilitas
             </h3>
-            <button onClick={() => { const id = Math.random().toString(36).substr(2,9); setInvoice({...invoice, items: [...invoice.items, {id, description:'', quantity:1, nights:1, unitPrice:0, total:0}]}) }} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all">+ Tambah</button>
+            <button onClick={() => { const id = Math.random().toString(36).substr(2,9); const today = new Date().toISOString().split('T')[0]; setInvoice({...invoice, items: [...invoice.items, {id, date: today, description:'', quantity:1, nights:1, unitPrice:0, total:0}]}) }} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all">+ Tambah</button>
           </div>
           <div className="grid grid-cols-12 gap-2 mb-2 px-1">
-            <div className="col-span-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Deskripsi Layanan</div>
+            <div className="col-span-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tanggal</div>
+            <div className="col-span-3 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Deskripsi Layanan</div>
             <div className="col-span-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center">Qty</div>
             <div className="col-span-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center">Malam</div>
             <div className="col-span-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Harga Unit</div>
-            <div className="col-span-3 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Total</div>
+            <div className="col-span-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider text-right">Total</div>
             <div className="col-span-1"></div>
           </div>
           <div className="space-y-2">

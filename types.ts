@@ -27,6 +27,7 @@ export interface HotelSettings {
 
 export interface InvoiceItem {
   id: string;
+  date: string;
   description: string;
   quantity: number;
   nights: number;
@@ -43,6 +44,7 @@ export interface Payment {
 
 export interface GuestInfo {
   name: string;
+  company?: string;
   email: string;
   phone: string;
   address: string;

@@ -22,7 +22,7 @@ import { generatePersonalizedNote } from './services/geminiService';
 
 declare var html2pdf: any;
 
-const INITIAL_GUEST = { name: '', email: '', phone: '', address: '' };
+const INITIAL_GUEST = { name: '', company: '', email: '', phone: '', address: '' };
 const INITIAL_STAY = { roomNumber: '', roomType: '', guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
 
 const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
@@ -286,6 +286,7 @@ const App: React.FC = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const lastCashier = invoices.length > 0 ? invoices[0].cashierName : '';
     const currentYear = new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
     const prefix = `${activeCategory === 'villa' ? 'VIL' : 'INV'}-${currentYear}-`;
     const sequenceNumbers = invoices
       .filter(inv => inv.category === activeCategory && inv.invoiceNumber.startsWith(prefix))
@@ -296,10 +297,10 @@ const App: React.FC = () => {
       id,
       category: activeCategory,
       invoiceNumber: `${prefix}${nextSequence.toString().padStart(4, '0')}`,
-      date: new Date().toISOString().split('T')[0],
+      date: today,
       guest: { ...INITIAL_GUEST },
       stay: { ...INITIAL_STAY, roomType: activeRoomTypes[0] },
-      items: [{ id: '1', description: '', quantity: 1, nights: 1, unitPrice: 0, total: 0 }],
+      items: [{ id: '1', date: today, description: '', quantity: 1, nights: 1, unitPrice: 0, total: 0 }],
       payments: [],
       taxRate: 0, discount: 0, status: 'draft', notes: '', remarks: '', hotelSnap: activeSettings,
       cashierName: lastCashier || ''
