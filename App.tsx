@@ -17,7 +17,8 @@ import {
   fetchSettingsFromSupabase,
   onAuthStateChange,
   signOut,
-  getCurrentUserProfile
+  getCurrentUserProfile,
+  upsertProfile
 } from './services/supabaseService';
 import { generatePersonalizedNote } from './services/geminiService';
 
@@ -106,9 +107,21 @@ const App: React.FC = () => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        const profile = await getCurrentUserProfile(newSession.user.id);
+        let profile = await getCurrentUserProfile(newSession.user.id);
         const email = newSession.user.email?.toLowerCase();
         
+        // Auto-create profile for special accounts if missing in DB
+        if (!profile && email === 'hotelpangandaranblueorchid@gmail.com') {
+           const newProfile: UserProfile = {
+             id: newSession.user.id,
+             email: email,
+             role: 'receptionist',
+             updated_at: new Date().toISOString()
+           };
+           await upsertProfile(newProfile);
+           profile = newProfile;
+        }
+
         if (email && SUPER_ADMIN_EMAILS.includes(email)) {
           setUserProfile({ 
             id: newSession.user.id, 
@@ -119,12 +132,12 @@ const App: React.FC = () => {
             subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
           });
         } else if (email === 'hotelpangandaranblueorchid@gmail.com') {
-          // Explicitly force receptionist role
+          // Explicitly force receptionist role in local state as well
           setUserProfile({ 
             id: newSession.user.id, 
             email: newSession.user.email, 
             role: 'receptionist',
-            subscription_status: profile?.subscription_status || 'active', // Default to active if undefined
+            subscription_status: profile?.subscription_status || 'active', 
             subscription_end_date: profile?.subscription_end_date,
             fullName: profile?.fullName
           });

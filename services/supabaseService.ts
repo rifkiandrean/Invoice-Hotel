@@ -57,27 +57,27 @@ export const onAuthStateChange = (callback: (session: Session | null) => void) =
 export const fetchProfiles = async (): Promise<UserProfile[]> => {
   try {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('akun')
       .select('*')
       .order('updated_at', { ascending: false });
     
     if (error) throw error;
     return data || [];
   } catch (err) {
-    console.error("Fetch Profiles Error:", err);
+    console.error("Fetch Profiles (Akun) Error:", err);
     return [];
   }
 };
 
 export const upsertProfile = async (profile: UserProfile) => {
   return await supabase
-    .from('profiles')
+    .from('akun')
     .upsert(profile, { onConflict: 'id' });
 };
 
 export const getCurrentUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase
-    .from('profiles')
+    .from('akun')
     .select('*')
     .eq('id', userId)
     .single();
