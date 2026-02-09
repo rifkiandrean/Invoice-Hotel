@@ -7,6 +7,8 @@ export interface UserProfile {
   role: UserRole;
   fullName?: string;
   updated_at?: string;
+  subscription_status?: 'active' | 'inactive';
+  subscription_end_date?: string;
 }
 
 export interface HotelSettings {

@@ -9,7 +9,12 @@ interface Props {
   currentUserRole?: UserRole;
 }
 
-const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
+// Configuration for Special Accounts
+const MASTER_ADMIN = 'rifkiandrean@gmail.com';
+const LOCKED_ACCOUNTS: Record<string, UserRole> = {
+  'rifkiandrean@gmail.com': 'super-admin',
+  'hotelpangandaranblueorchid@gmail.com': 'receptionist'
+};
 
 export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRole }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'accounts'>('profile');
@@ -34,13 +39,30 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
 
   const loadProfiles = async () => {
     const data = await fetchProfiles();
+    
     const processedData = data.map(p => {
-      if (SUPER_ADMIN_EMAILS.includes(p.email.toLowerCase())) {
-        return { ...p, role: 'super-admin' as UserRole };
+      const emailLower = p.email.toLowerCase();
+      
+      // Enforce strict roles for specific emails based on LOCKED_ACCOUNTS config
+      if (LOCKED_ACCOUNTS[emailLower]) {
+        return { 
+          ...p, 
+          role: LOCKED_ACCOUNTS[emailLower],
+          // Master admin always active
+          ...(emailLower === MASTER_ADMIN ? { subscription_status: 'active' } : {})
+        };
       }
       return p;
     });
-    setProfiles(processedData);
+
+    // Sort: Master Admin first, then alphabetical
+    processedData.sort((a, b) => {
+      if (a.email.toLowerCase() === MASTER_ADMIN) return -1;
+      if (b.email.toLowerCase() === MASTER_ADMIN) return 1;
+      return a.email.localeCompare(b.email);
+    });
+
+    setProfiles(processedData as UserProfile[]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -74,6 +96,17 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     }
   };
 
+  const handleUpdateSubscription = async (userId: string, status: 'active' | 'inactive', date?: string) => {
+    const profile = profiles.find(p => p.id === userId);
+    if (profile) {
+      const updates: Partial<UserProfile> = { subscription_status: status };
+      if (date !== undefined) updates.subscription_end_date = date;
+      
+      await upsertProfile({ ...profile, ...updates });
+      loadProfiles();
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
     const file = e.target.files?.[0];
     if (file) {
@@ -95,9 +128,10 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   };
 
   const canManageAccounts = currentUserRole === 'admin' || currentUserRole === 'super-admin';
+  const canManageSubscriptions = currentUserRole === 'super-admin';
 
   return (
-    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
         <div className="flex border-b border-slate-100">
           <button 
@@ -309,51 +343,102 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
 
             <section>
                <h3 className="text-lg font-bold text-slate-800 mb-4">Daftar Akun Terdaftar</h3>
-               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm text-[11px] text-slate-400 mb-2 italic">
-                  * Akun Super Admin tidak dapat dimodifikasi perannya.
+               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm text-[11px] text-slate-400 mb-2 p-2 bg-slate-50 flex gap-2 items-center">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                  Subscription hanya dikelola oleh <strong>{MASTER_ADMIN}</strong>.
                </div>
-               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-sm">
+               <div className="border border-slate-200 rounded-2xl overflow-auto shadow-sm">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
                     <thead className="bg-slate-50 border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase">User Email</th>
-                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase">Current Role</th>
-                        <th className="px-6 py-3 font-bold text-slate-400 text-[10px] uppercase text-right">Actions</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">User Email</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Role</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Change Role</th>
+                        {canManageSubscriptions && (
+                          <>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Subscription Status</th>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Expiry Date</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {profiles.map(profile => {
-                        const isSuperAdmin = profile.role === 'super-admin';
+                        const emailLower = profile.email.toLowerCase();
+                        const isMasterAdmin = emailLower === MASTER_ADMIN;
+                        const isLockedAccount = LOCKED_ACCOUNTS.hasOwnProperty(emailLower);
+                        const isLockedRole = LOCKED_ACCOUNTS[emailLower] || isMasterAdmin;
+
                         return (
                           <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4 font-medium text-slate-700">{profile.email}</td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-4 font-medium text-slate-700">
+                              {profile.email}
+                              {isMasterAdmin && <span className="ml-2 text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">MASTER</span>}
+                            </td>
+                            <td className="px-4 py-4">
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                                isSuperAdmin ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                profile.role === 'super-admin' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                                 profile.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 
-                                profile.role === 'manager' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                                profile.role === 'manager' ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-600'
                               }`}>
                                 {profile.role.replace('-', ' ')}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-4 py-4">
                               <select 
                                 onChange={(e) => handleChangeRole(profile.id, e.target.value as UserRole)}
                                 value={profile.role}
-                                disabled={isSuperAdmin}
-                                className={`text-[10px] font-bold border border-slate-200 rounded px-2 py-1 outline-none bg-white ${isSuperAdmin ? 'opacity-50 cursor-not-allowed text-slate-300' : 'text-slate-500'}`}
+                                disabled={!!isLockedRole}
+                                className={`text-[10px] font-bold border border-slate-200 rounded px-2 py-1.5 outline-none bg-white w-32 ${!!isLockedRole ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100' : 'text-slate-600 hover:border-indigo-300'}`}
                               >
-                                {isSuperAdmin ? (
-                                   <option value="super-admin">Super Admin (Locked)</option>
+                                {!!isLockedRole ? (
+                                   <option value={profile.role}>Fixed Role</option>
                                 ) : (
                                   <>
-                                    <option value="receptionist">Make Receptionist</option>
-                                    <option value="manager">Make Manager</option>
-                                    <option value="admin">Make Admin</option>
+                                    <option value="receptionist">Receptionist</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="admin">Admin</option>
                                   </>
                                 )}
                               </select>
                             </td>
+                            {canManageSubscriptions && (
+                              <>
+                                <td className="px-4 py-4">
+                                  {!isMasterAdmin ? (
+                                    <select 
+                                      value={profile.subscription_status || 'inactive'} 
+                                      onChange={(e) => handleUpdateSubscription(profile.id, e.target.value as 'active' | 'inactive')}
+                                      className={`text-[10px] font-bold border rounded px-2 py-1.5 outline-none w-28 uppercase transition-colors ${
+                                        profile.subscription_status === 'active' 
+                                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
+                                          : 'border-rose-200 bg-rose-50 text-rose-700'
+                                      }`}
+                                    >
+                                      <option value="active">Active</option>
+                                      <option value="inactive">Inactive</option>
+                                    </select>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                      <span className="text-[10px] font-black text-emerald-700">LIFETIME</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4">
+                                  {!isMasterAdmin ? (
+                                    <input 
+                                      type="date"
+                                      value={profile.subscription_end_date ? new Date(profile.subscription_end_date).toISOString().split('T')[0] : ''}
+                                      onChange={(e) => handleUpdateSubscription(profile.id, profile.subscription_status || 'inactive', e.target.value)}
+                                      className="text-[10px] border border-slate-200 rounded px-2 py-1.5 w-32 text-slate-600 focus:border-indigo-500 outline-none"
+                                    />
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 font-mono">∞</span>
+                                  )}
+                                </td>
+                              </>
+                            )}
                           </tr>
                         );
                       })}

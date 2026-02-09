@@ -4,6 +4,7 @@ import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } f
 import { InvoicePreview } from './components/InvoicePreview';
 import { SettingsPage } from './components/SettingsPage';
 import { Auth } from './components/Auth';
+import { SubscriptionBlock } from './components/SubscriptionBlock';
 import { MobileDashboardList } from './components/mobile/MobileDashboardList';
 import { DesktopDashboardTable } from './components/desktop/DesktopDashboardTable';
 import { MobileInvoiceForm } from './components/mobile/MobileInvoiceForm';
@@ -25,7 +26,9 @@ declare var html2pdf: any;
 const INITIAL_GUEST = { name: '', company: '', email: '', phone: '', address: '' };
 const INITIAL_STAY = { roomNumber: '', roomType: '', guestType: GUEST_TYPES[0], checkIn: '', checkOut: '', guestsCount: 1 };
 
-const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
+// Updated: Super Admin restricted strictly to rifkiandrean@gmail.com
+const SUPER_ADMIN_EMAILS = ['rifkiandrean@gmail.com'];
+const MASTER_ADMIN = 'rifkiandrean@gmail.com';
 
 const DASHBOARD_BANNERS = [
   {
@@ -110,7 +113,20 @@ const App: React.FC = () => {
           setUserProfile({ 
             id: newSession.user.id, 
             email: newSession.user.email, 
-            role: 'super-admin' 
+            role: 'super-admin',
+            // Allow master admins to always have access conceptually
+            subscription_status: 'active',
+            subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
+          });
+        } else if (email === 'hotelpangandaranblueorchid@gmail.com') {
+          // Explicitly force receptionist role
+          setUserProfile({ 
+            id: newSession.user.id, 
+            email: newSession.user.email, 
+            role: 'receptionist',
+            subscription_status: profile?.subscription_status || 'active', // Default to active if undefined
+            subscription_end_date: profile?.subscription_end_date,
+            fullName: profile?.fullName
           });
         } else {
           setUserProfile(profile);
@@ -390,6 +406,16 @@ const App: React.FC = () => {
   };
 
   if (!session) return <Auth hotelName={activeSettings.name} />;
+
+  // --- Subscription Check Logic ---
+  const isSuperAdmin = userProfile?.role === 'super-admin' || userProfile?.email === MASTER_ADMIN;
+  const hasActiveSubscription = userProfile?.subscription_status === 'active' && 
+    (userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) > new Date() : false);
+  
+  if (!isSuperAdmin && !hasActiveSubscription && userProfile) {
+    return <SubscriptionBlock user={userProfile} onLogout={handleLogout} />;
+  }
+  // --------------------------------
 
   const invoiceCalculations = currentInvoice ? {
     subtotal: calculateSubtotal(currentInvoice),
