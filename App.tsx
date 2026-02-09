@@ -34,7 +34,7 @@ const MASTER_ADMIN = 'rifkiandrean@gmail.com';
 const DASHBOARD_BANNERS = [
   {
     id: 1,
-    title: "Selamat Datang di HotelFlow",
+    title: "Selamat Datang di Hotel Invoice by VELL",
     subtitle: "Sistem manajemen operasional hotel & villa yang efisien, modern, dan terintegrasi AI.",
     gradient: "bg-gradient-to-r from-indigo-600 to-violet-600",
     pattern: "opacity-20",
