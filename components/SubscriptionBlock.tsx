@@ -39,13 +39,13 @@ export const SubscriptionBlock: React.FC<Props> = ({ user, onLogout }) => {
 
           <p className="text-slate-600 text-sm leading-relaxed">
             Halo <strong>{user.email}</strong>,<br/>
-            Untuk melanjutkan penggunaan aplikasi <strong>HotelFlow</strong> dan mengelola invoice, silakan perpanjang langganan Anda.
+            Untuk melanjutkan penggunaan aplikasi <strong>Invoice Hotel by VELL</strong> dan mengelola invoice, silakan perpanjang langganan Anda.
           </p>
 
           <div className="border-t border-slate-100 pt-6">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Hubungi Administrator</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Hubungi Whatsapp Administrator</p>
             <a 
-              href="mailto:rifkiandrean@gmail.com" 
+              href="https://wa.me/+6282115123431" 
               className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 mb-3"
             >
               rifkiandrean@gmail.com
