@@ -467,7 +467,9 @@ const App: React.FC = () => {
               >
                 Villa
               </button>
-              <button onClick={handleSettingsClick} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
+              {isSuperAdmin && (
+                <button onClick={handleSettingsClick} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
+              )}
             </nav>
           </div>
           
