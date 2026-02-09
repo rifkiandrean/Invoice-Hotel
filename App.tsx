@@ -27,6 +27,33 @@ const INITIAL_STAY = { roomNumber: '', roomType: '', guestType: GUEST_TYPES[0], 
 
 const SUPER_ADMIN_EMAILS = ['hotelpangandaranblueorchid@gmail.com', 'rifkiandrean@gmail.com'];
 
+const DASHBOARD_BANNERS = [
+  {
+    id: 1,
+    title: "Selamat Datang di HotelFlow",
+    subtitle: "Sistem manajemen operasional hotel & villa yang efisien, modern, dan terintegrasi AI.",
+    gradient: "bg-gradient-to-r from-indigo-600 to-violet-600",
+    pattern: "opacity-20",
+    icon: "🏨"
+  },
+  {
+    id: 2,
+    title: "Kelola Tamu Lebih Mudah",
+    subtitle: "Catat transaksi, cetak invoice, dan pantau status pembayaran dalam satu dashboard.",
+    gradient: "bg-gradient-to-r from-emerald-500 to-teal-600",
+    pattern: "opacity-20",
+    icon: "✨"
+  },
+  {
+    id: 3,
+    title: "Fitur AI Personal Assistant",
+    subtitle: "Gunakan AI untuk membuat catatan personal yang hangat bagi setiap tamu Anda.",
+    gradient: "bg-gradient-to-r from-rose-500 to-orange-500",
+    pattern: "opacity-20",
+    icon: "🤖"
+  }
+];
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -40,6 +67,9 @@ const App: React.FC = () => {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
+
+  // Banner State
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -60,6 +90,14 @@ const App: React.FC = () => {
 
   const activeSettings = activeCategory === 'villa' ? villaSettings : hotelSettings;
   const activeRoomTypes = activeCategory === 'villa' ? VILLA_ROOM_TYPES : ROOM_TYPES;
+
+  // Banner Auto Slide Effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % DASHBOARD_BANNERS.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
@@ -431,6 +469,43 @@ const App: React.FC = () => {
         {viewMode === 'list' && (
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-[1600px] w-full mx-auto animate-fade-in flex flex-col h-full">
             <div className="flex-1">
+              
+              {/* Banner Slider */}
+              <div className="mb-8 rounded-3xl overflow-hidden relative shadow-lg shadow-indigo-100 group h-40 lg:h-48 transition-all">
+                {DASHBOARD_BANNERS.map((banner, index) => (
+                  <div 
+                    key={banner.id}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                      index === currentBannerIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    } ${banner.gradient}`}
+                  >
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+                    <div className="relative z-20 h-full flex items-center px-6 lg:px-10">
+                      <div className="w-12 h-12 lg:w-16 lg:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-2xl lg:text-3xl mr-4 lg:mr-6 shrink-0 shadow-inner border border-white/20">
+                        {banner.icon}
+                      </div>
+                      <div className="text-white max-w-2xl">
+                        <h3 className="text-lg lg:text-2xl font-black mb-1 lg:mb-2 tracking-tight">{banner.title}</h3>
+                        <p className="text-xs lg:text-sm font-medium text-white/90 leading-relaxed max-w-xl">{banner.subtitle}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Dots Navigation */}
+                <div className="absolute bottom-4 left-0 right-0 z-30 flex justify-center gap-2">
+                  {DASHBOARD_BANNERS.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentBannerIndex(idx)}
+                      className={`w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full transition-all duration-300 ${
+                        idx === currentBannerIndex ? 'bg-white w-6 lg:w-8' : 'bg-white/40 hover:bg-white/60'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <div className="flex justify-between items-end mb-6">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard {activeCategory === 'villa' ? 'Villa' : 'Hotel'}</h2>
