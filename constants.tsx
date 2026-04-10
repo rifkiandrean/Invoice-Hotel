@@ -66,6 +66,7 @@ export const ROOM_DESCRIPTIONS = [
   'Suite Room',
   'Junior Suite Room',
   'President Room',
+  'COTTAGE Room',
   'Charge Extra Bed',
   'Charge Extra Towl',
   'Charge Extra Pillow',
@@ -96,7 +97,7 @@ export const PAYMENT_METHODS = [
   'QRIS',
   'Credit Card',
   'Bank Transfer',
-  'Debit Card',
+  'Debit Card/EDC',
   'E-Wallet',
   'Travel Agent'
 ];
