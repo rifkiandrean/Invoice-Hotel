@@ -91,19 +91,36 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     if (!confirm(`Ubah role pengguna ini menjadi ${newRole}?`)) return;
     const profile = profiles.find(p => p.id === userId);
     if (profile) {
-      await upsertProfile({ ...profile, role: newRole });
-      loadProfiles();
+      const { error } = await upsertProfile({ ...profile, role: newRole });
+      if (error) {
+        alert("Gagal mengubah role: " + error.message);
+      } else {
+        loadProfiles();
+      }
     }
   };
 
   const handleUpdateSubscription = async (userId: string, status: 'active' | 'inactive', date?: string) => {
     const profile = profiles.find(p => p.id === userId);
     if (profile) {
-      const updates: Partial<UserProfile> = { subscription_status: status };
+      const updates: Partial<UserProfile> = { 
+        subscription_status: status,
+        updated_at: new Date().toISOString()
+      };
       if (date !== undefined) updates.subscription_end_date = date;
       
-      await upsertProfile({ ...profile, ...updates });
-      loadProfiles();
+      try {
+        const { error } = await upsertProfile({ ...profile, ...updates });
+        if (error) {
+          console.error("Error updating subscription:", error);
+          alert("Gagal memperbarui subscription: " + error.message);
+        } else {
+          loadProfiles();
+        }
+      } catch (err) {
+        console.error("Error updating subscription:", err);
+        alert("Terjadi kesalahan saat memperbarui subscription.");
+      }
     }
   };
 

@@ -70,9 +70,15 @@ export const fetchProfiles = async (): Promise<UserProfile[]> => {
 };
 
 export const upsertProfile = async (profile: UserProfile) => {
-  return await supabase
+  const { data, error } = await supabase
     .from('akun')
     .upsert(profile, { onConflict: 'id' });
+  
+  if (error) {
+    console.error("Supabase upsertProfile Error:", error);
+  }
+  
+  return { data, error };
 };
 
 export const getCurrentUserProfile = async (userId: string): Promise<UserProfile | null> => {
