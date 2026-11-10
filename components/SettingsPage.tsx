@@ -1,7 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { HotelSettings, UserProfile, UserRole } from '../types';
-import { uploadAsset, fetchProfiles, signUpNewUser, upsertProfile } from '../services/supabaseService';
+import { 
+  uploadAsset, 
+  fetchProfiles, 
+  signUpNewUser, 
+  upsertProfile,
+  fetchInvoicesFromFirebase 
+} from '../services/firebaseService';
+import * as XLSX from 'xlsx';
+import { HOTEL_INFO } from '../constants';
 
 interface Props {
   settings: HotelSettings;
@@ -17,9 +25,11 @@ const LOCKED_ACCOUNTS: Record<string, UserRole> = {
 };
 
 export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRole }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'accounts'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'accounts' | 'backup'>('profile');
   const [formData, setFormData] = React.useState<HotelSettings>(settings);
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
   
   // Account Management States
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
@@ -72,12 +82,21 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUser.email || !newUser.password) return;
+    if (!newUser.email) return;
     setIsCreatingUser(true);
     try {
-      const { error } = await signUpNewUser(newUser.email, newUser.password, newUser.role);
+      const emailLower = newUser.email.trim().toLowerCase();
+      // Use email as document ID placeholder or hash if they haven't logged in yet
+      const tempId = `google_${emailLower.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const { error } = await upsertProfile({
+        id: tempId,
+        email: emailLower,
+        role: newUser.role,
+        subscription_status: 'active',
+        updated_at: new Date().toISOString()
+      });
       if (error) throw error;
-      alert('Akun baru berhasil didaftarkan!');
+      alert(`Email ${emailLower} berhasil diotorisasi! Staf dapat langsung login dengan akun Google mereka.`);
       setNewUser({ email: '', password: '', role: 'receptionist' });
       loadProfiles();
     } catch (err: any) {
@@ -147,6 +166,112 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const canManageAccounts = currentUserRole === 'admin' || currentUserRole === 'super-admin';
   const canManageSubscriptions = currentUserRole === 'super-admin';
 
+  const handleExportToExcel = async () => {
+    setIsExporting(true);
+    setExportStatus('Mengambil data dari database...');
+    try {
+      // 1. Fetch Invoices from Firebase
+      const invoices = await fetchInvoicesFromFirebase();
+      setExportStatus(`Memproses ${invoices.length} data tagihan...`);
+
+      // 2. Prepare Invoices Sheet Data
+      const invoiceRows = invoices.map(inv => {
+        const subtotal = inv.items?.reduce((sum, item) => sum + (item.quantity * item.nights * item.unitPrice), 0) || 0;
+        const total = subtotal - (inv.discount || 0);
+        const paymentsTotal = inv.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+        const balance = total - paymentsTotal;
+
+        return {
+          'No. Invoice': inv.invoiceNumber,
+          'Kategori': inv.category === 'villa' ? 'Villa' : 'Hotel',
+          'Tanggal': inv.date,
+          'Status': inv.status?.toUpperCase() || 'DRAFT',
+          'Nama Tamu': inv.guest?.name || '-',
+          'Perusahaan': inv.guest?.company || '-',
+          'Email Tamu': inv.guest?.email || '-',
+          'No. HP Tamu': inv.guest?.phone || '-',
+          'No. Kamar': inv.stay?.roomNumber || '-',
+          'Tipe Kamar': inv.stay?.roomType || '-',
+          'Tipe Tamu': inv.stay?.guestType || '-',
+          'Check-In': inv.stay?.checkIn || '-',
+          'Check-Out': inv.stay?.checkOut || '-',
+          'Jumlah Tamu': inv.stay?.guestsCount || 1,
+          'Subtotal (Rp)': subtotal,
+          'Diskon (Rp)': inv.discount || 0,
+          'Total Tagihan (Rp)': total,
+          'Total Pembayaran (Rp)': paymentsTotal,
+          'Sisa Tagihan (Rp)': balance,
+          'Kasir': inv.cashierName || '-',
+          'Catatan': inv.notes || '',
+          'Remarks': inv.remarks || ''
+        };
+      });
+
+      // 3. Prepare Item Details Sheet Data
+      const itemRows: any[] = [];
+      invoices.forEach(inv => {
+        (inv.items || []).forEach((item, idx) => {
+          itemRows.push({
+            'No. Invoice': inv.invoiceNumber,
+            'Kategori': inv.category === 'villa' ? 'Villa' : 'Hotel',
+            'Item #': idx + 1,
+            'Tanggal': item.date,
+            'Deskripsi': item.description,
+            'Jumlah': item.quantity,
+            'Malam': item.nights,
+            'Harga Satuan (Rp)': item.unitPrice,
+            'Total (Rp)': item.total
+          });
+        });
+      });
+
+      // 4. Prepare Payment History Sheet Data
+      const paymentRows: any[] = [];
+      invoices.forEach(inv => {
+        (inv.payments || []).forEach((pay, idx) => {
+          paymentRows.push({
+            'No. Invoice': inv.invoiceNumber,
+            'Pembayaran #': idx + 1,
+            'Tanggal': pay.date,
+            'Metode': pay.method,
+            'Jumlah (Rp)': pay.amount
+          });
+        });
+      });
+
+      // 5. Build Workbook
+      setExportStatus('Menyusun file Excel (.xlsx)...');
+      const workbook = XLSX.utils.book_new();
+
+      const wsInvoices = XLSX.utils.json_to_sheet(invoiceRows);
+      XLSX.utils.book_append_sheet(workbook, wsInvoices, 'Daftar Invoice');
+
+      if (itemRows.length > 0) {
+        const wsItems = XLSX.utils.json_to_sheet(itemRows);
+        XLSX.utils.book_append_sheet(workbook, wsItems, 'Rincian Item');
+      }
+
+      if (paymentRows.length > 0) {
+        const wsPayments = XLSX.utils.json_to_sheet(paymentRows);
+        XLSX.utils.book_append_sheet(workbook, wsPayments, 'Riwayat Pembayaran');
+      }
+
+      // 6. Generate filename with timestamp and trigger download
+      const dateStr = new Date().toISOString().split('T')[0];
+      const fileName = `Backup_Data_HotelFlow_${dateStr}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      setExportStatus(null);
+      alert(`Backup berhasil diekspor! File "${fileName}" siap diunduh.`);
+    } catch (e: any) {
+      console.error("Export error:", e);
+      alert('Gagal mengekspor file Excel: ' + (e.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
@@ -163,6 +288,14 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
               className={`flex-1 py-5 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'accounts' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
             >
               Manajemen Akun
+            </button>
+          )}
+          {canManageAccounts && (
+            <button 
+              onClick={() => setActiveTab('backup')}
+              className={`flex-1 py-5 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'backup' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+            >
+              Backup File Excel 📊
             </button>
           )}
         </div>
@@ -304,32 +437,21 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
               <button type="submit" className="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95">Update Profil Hotel</button>
             </div>
           </form>
-        ) : (
+        ) : activeTab === 'accounts' ? (
           <div className="p-8 space-y-8 animate-fade-in">
             <section>
               <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                Tambah Akun Staf Baru
+                Otorisasi Akun Google Staf Baru
               </h3>
-              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email Staf</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email Akun Google</label>
                   <input 
                     type="email" 
                     value={newUser.email} 
                     onChange={e => setNewUser({...newUser, email: e.target.value})}
-                    placeholder="email@hotel.com"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password</label>
-                  <input 
-                    type="password" 
-                    value={newUser.password} 
-                    onChange={e => setNewUser({...newUser, password: e.target.value})}
-                    placeholder="••••••••"
+                    placeholder="staf@gmail.com"
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500"
                     required
                   />
@@ -352,7 +474,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                     disabled={isCreatingUser}
                     className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
                   >
-                    {isCreatingUser ? 'Mendaftarkan...' : 'Daftar Akun'}
+                    {isCreatingUser ? 'Menyimpan...' : 'Otorisasi Akun'}
                   </button>
                 </div>
               </form>
@@ -463,6 +585,78 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                   </table>
                </div>
             </section>
+          </div>
+        ) : (
+          <div className="p-8 space-y-6 animate-fade-in">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-emerald-900">Backup Data Tagihan ke File Excel (.xlsx)</h3>
+                  <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                    Unduh seluruh arsip data operasional hotel dan villa Anda ke dalam satu file Microsoft Excel yang rapi, terstruktur, dan siap dibuka di Excel / Google Sheets.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Struktur Lembar Kerja (Worksheet)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold mb-2">1</div>
+                  <span className="font-bold text-slate-800 block text-sm">Daftar Invoice</span>
+                  <p className="text-[11px] text-slate-500 mt-1">Nomor invoice, data tamu, kamar, tanggal, total transaksi, pembayaran, dan sisa saldo.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center font-bold mb-2">2</div>
+                  <span className="font-bold text-slate-800 block text-sm">Rincian Item</span>
+                  <p className="text-[11px] text-slate-500 mt-1">Breakdown item tagihan per baris: kamar, extra bed, room service, quantity, dan tarif.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="w-7 h-7 bg-teal-50 text-teal-600 rounded-lg flex items-center justify-center font-bold mb-2">3</div>
+                  <span className="font-bold text-slate-800 block text-sm">Riwayat Pembayaran</span>
+                  <p className="text-[11px] text-slate-500 mt-1">Catatan tanggal, nominal bayar, dan metode pembayaran (Cash, Transfer, EDC, dll).</p>
+                </div>
+              </div>
+
+              {exportStatus && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-3">
+                  <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent animate-spin rounded-full"></div>
+                  <span className="font-medium">{exportStatus}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportToExcel}
+                  disabled={isExporting}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2.5 text-sm"
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full"></div>
+                      Sedang Membuat File Excel...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download Backup Excel (.xlsx)
+                    </>
+                  )}
+                </button>
+                <span className="text-[11px] text-slate-400 italic">
+                  Data diambil secara real-time langsung dari database cloud.
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>

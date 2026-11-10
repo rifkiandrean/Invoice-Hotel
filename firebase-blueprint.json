@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role and subscription details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["super-admin", "admin", "manager", "receptionist"] },
+        "fullName": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "subscription_status": { "type": "string", "enum": ["active", "inactive"] },
+        "subscription_end_date": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "HotelSettings": {
+      "title": "HotelSettings",
+      "description": "Hotel or Villa profile settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" },
+        "logo": { "type": "string" },
+        "bankInfo": { "type": "string" },
+        "signature": { "type": "string" },
+        "stamp": { "type": "string" },
+        "defaultTaxRate": { "type": "number" },
+        "settingsPin": { "type": "string" }
+      },
+      "required": ["name", "address", "phone", "email"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Hotel and Villa invoice record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string", "enum": ["hotel", "villa"] },
+        "invoiceNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "guest": { "type": "object" },
+        "stay": { "type": "object" },
+        "items": { "type": "array" },
+        "payments": { "type": "array" },
+        "taxRate": { "type": "number" },
+        "discount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "paid", "cancelled"] },
+        "notes": { "type": "string" },
+        "remarks": { "type": "string" },
+        "hotelSnap": { "type": "object" },
+        "cashierName": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "category", "invoiceNumber", "date", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and permissions"
+    },
+    "/settings/{profileId}": {
+      "schema": "HotelSettings",
+      "description": "Hotel or Villa settings document (hotel_profile or villa_profile)"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Invoice documents for hotel and villa"
+    }
+  }
+}

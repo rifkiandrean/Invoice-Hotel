@@ -11,15 +11,16 @@ import { MobileInvoiceForm } from './components/mobile/MobileInvoiceForm';
 import { DesktopInvoiceForm } from './components/desktop/DesktopInvoiceForm';
 import { ROOM_TYPES, VILLA_ROOM_TYPES, GUEST_TYPES, HOTEL_INFO, VILLA_INFO, TAX_RATE } from './constants';
 import { 
-  fetchInvoicesFromSupabase, 
-  upsertInvoiceToSupabase, 
-  saveSettingsToSupabase, 
-  fetchSettingsFromSupabase,
+  fetchInvoicesFromFirebase, 
+  upsertInvoiceToFirebase, 
+  saveSettingsToFirebase, 
+  fetchSettingsFromFirebase,
   onAuthStateChange,
   signOut,
   getCurrentUserProfile,
-  upsertProfile
-} from './services/supabaseService';
+  upsertProfile,
+  fetchProfiles
+} from './services/firebaseService';
 import { generatePersonalizedNote } from './services/geminiService';
 
 declare var html2pdf: any;
@@ -110,12 +111,28 @@ const App: React.FC = () => {
         let profile = await getCurrentUserProfile(newSession.user.id);
         const email = newSession.user.email?.toLowerCase();
         
-        // Auto-create profile for special accounts if missing in DB
+        // If not found by UID, check if email was pre-authorized in profiles
+        if (!profile && email) {
+          const allProfiles = await fetchProfiles();
+          const matchedByEmail = allProfiles.find(p => p.email.toLowerCase() === email);
+          if (matchedByEmail) {
+            // Adopt existing permissions and link with the actual Google UID
+            profile = {
+              ...matchedByEmail,
+              id: newSession.user.id,
+              updated_at: new Date().toISOString()
+            };
+            await upsertProfile(profile);
+          }
+        }
+
+        // Auto-create profile for default hotel account if missing
         if (!profile && email === 'hotelpangandaranblueorchid@gmail.com') {
            const newProfile: UserProfile = {
              id: newSession.user.id,
              email: email,
              role: 'receptionist',
+             subscription_status: 'active',
              updated_at: new Date().toISOString()
            };
            await upsertProfile(newProfile);
@@ -127,12 +144,10 @@ const App: React.FC = () => {
             id: newSession.user.id, 
             email: newSession.user.email, 
             role: 'super-admin',
-            // Allow master admins to always have access conceptually
             subscription_status: 'active',
             subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
           });
         } else if (email === 'hotelpangandaranblueorchid@gmail.com') {
-          // Explicitly force receptionist role in local state as well
           setUserProfile({ 
             id: newSession.user.id, 
             email: newSession.user.email, 
@@ -156,22 +171,17 @@ const App: React.FC = () => {
     if (!session) return;
     setSyncStatus('syncing');
     try {
-      const currentConfig = category === 'villa' ? villaSettings : hotelSettings;
-      const cloudSettings = await fetchSettingsFromSupabase(category, currentConfig);
+      const cloudSettings = await fetchSettingsFromFirebase(category);
       if (cloudSettings) {
         if (category === 'hotel') {
           setHotelSettings(prev => ({ 
             ...prev, 
-            ...cloudSettings,
-            supabaseUrl: HOTEL_INFO.supabaseUrl,
-            supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
+            ...cloudSettings
           }));
         } else {
           setVillaSettings(prev => ({ 
             ...prev, 
-            ...cloudSettings,
-            supabaseUrl: HOTEL_INFO.supabaseUrl,
-            supabaseAnonKey: HOTEL_INFO.supabaseAnonKey
+            ...cloudSettings
           }));
         }
         setSyncStatus('success');
@@ -182,20 +192,20 @@ const App: React.FC = () => {
     } finally {
       setTimeout(() => setSyncStatus('idle'), 2000);
     }
-  }, [session, hotelSettings, villaSettings]);
+  }, [session]);
 
   useEffect(() => {
     if (session) {
       loadCloudSettings('hotel');
       loadCloudSettings('villa');
     }
-  }, [session]);
+  }, [session, loadCloudSettings]);
 
-  const syncFromSupabase = useCallback(async () => {
+  const syncFromCloud = useCallback(async () => {
     if (!session) return;
     setSyncStatus('syncing');
     try {
-      const cloudInvoices = await fetchInvoicesFromSupabase(activeSettings);
+      const cloudInvoices = await fetchInvoicesFromFirebase();
       setInvoices(cloudInvoices);
       setSyncStatus('success');
     } catch (error) {
@@ -203,26 +213,26 @@ const App: React.FC = () => {
     } finally {
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
-  }, [session, activeSettings]);
+  }, [session]);
 
   useEffect(() => {
     if (viewMode === 'list' && session) {
-      syncFromSupabase();
+      syncFromCloud();
     }
-  }, [viewMode, syncFromSupabase, session, activeCategory]);
+  }, [viewMode, syncFromCloud, session, activeCategory]);
 
   const handleSaveSettings = async (newSettings: HotelSettings) => {
     if (session) {
       setSyncStatus('syncing');
-      const success = await saveSettingsToSupabase(activeCategory, newSettings);
+      const success = await saveSettingsToFirebase(activeCategory, newSettings);
       if (success) {
         if (activeCategory === 'hotel') setHotelSettings(newSettings);
         else setVillaSettings(newSettings);
         setSyncStatus('success');
-        alert('Pengaturan berhasil disimpan ke cloud!');
+        alert('Pengaturan berhasil disimpan ke Firebase!');
       } else {
         setSyncStatus('error');
-        alert('Gagal menyimpan ke cloud. Periksa koneksi atau database.');
+        alert('Gagal menyimpan ke Firebase. Periksa koneksi atau database.');
         loadCloudSettings(activeCategory); 
       }
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -267,13 +277,13 @@ const App: React.FC = () => {
 
     if (session) {
       setSyncStatus('syncing');
-      const success = await upsertInvoiceToSupabase(finalizedInvoice, activeSettings);
+      const success = await upsertInvoiceToFirebase(finalizedInvoice);
       if (success) {
         setSyncStatus('success');
-        syncFromSupabase();
+        syncFromCloud();
       } else {
         setSyncStatus('error');
-        alert('Gagal menyimpan invoice ke cloud.');
+        alert('Gagal menyimpan invoice ke Firebase.');
       }
       setTimeout(() => setSyncStatus('idle'), 3000);
     }
@@ -550,7 +560,7 @@ const App: React.FC = () => {
               <div className="flex justify-between items-end mb-6">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Dashboard {activeCategory === 'villa' ? 'Villa' : 'Hotel'}</h2>
-                  <button onClick={syncFromSupabase} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
+                  <button onClick={syncFromCloud} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
                     <svg className={`w-4 h-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
                   </button>
                 </div>
