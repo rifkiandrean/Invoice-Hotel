@@ -11,7 +11,9 @@
         "fullName": { "type": "string" },
         "updated_at": { "type": "string" },
         "subscription_status": { "type": "string", "enum": ["active", "inactive"] },
-        "subscription_end_date": { "type": "string" }
+        "subscription_end_date": { "type": "string" },
+        "grace_period_days": { "type": "number" },
+        "billing_cycle": { "type": "string", "enum": ["monthly", "yearly", "custom"] }
       },
       "required": ["id", "email", "role"]
     },

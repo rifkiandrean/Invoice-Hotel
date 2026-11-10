@@ -119,7 +119,12 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     }
   };
 
-  const handleUpdateSubscription = async (userId: string, status: 'active' | 'inactive', date?: string) => {
+  const handleUpdateSubscription = async (
+    userId: string, 
+    status: 'active' | 'inactive', 
+    date?: string,
+    graceDays?: number
+  ) => {
     const profile = profiles.find(p => p.id === userId);
     if (profile) {
       const updates: Partial<UserProfile> = { 
@@ -127,6 +132,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
         updated_at: new Date().toISOString()
       };
       if (date !== undefined) updates.subscription_end_date = date;
+      if (graceDays !== undefined) updates.grace_period_days = graceDays;
       
       try {
         const { error } = await upsertProfile({ ...profile, ...updates });
@@ -141,6 +147,20 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
         alert("Terjadi kesalahan saat memperbarui subscription.");
       }
     }
+  };
+
+  const handleExtendMonthly = async (userId: string, monthsToAdd: number = 1) => {
+    const profile = profiles.find(p => p.id === userId);
+    if (!profile) return;
+
+    const baseDate = profile.subscription_end_date && new Date(profile.subscription_end_date) > new Date()
+      ? new Date(profile.subscription_end_date)
+      : new Date();
+    
+    const newEnd = new Date(baseDate);
+    newEnd.setMonth(newEnd.getMonth() + monthsToAdd);
+
+    await handleUpdateSubscription(userId, 'active', newEnd.toISOString(), profile.grace_period_days ?? 3);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
@@ -492,11 +512,13 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                       <tr>
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">User Email</th>
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Role</th>
-                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Change Role</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Ganti Role</th>
                         {canManageSubscriptions && (
                           <>
-                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Subscription Status</th>
-                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Expiry Date</th>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Status</th>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Tgl Jatuh Tempo</th>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Toleransi (Hari)</th>
+                            <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Aksi Langganan</th>
                           </>
                         )}
                       </tr>
@@ -508,11 +530,24 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                         const isLockedAccount = LOCKED_ACCOUNTS.hasOwnProperty(emailLower);
                         const isLockedRole = LOCKED_ACCOUNTS[emailLower] || isMasterAdmin;
 
+                        const now = new Date();
+                        const endDate = profile.subscription_end_date ? new Date(profile.subscription_end_date) : null;
+                        const graceDays = profile.grace_period_days ?? 3;
+                        let finalDeadline: Date | null = null;
+                        if (endDate) {
+                          finalDeadline = new Date(endDate);
+                          finalDeadline.setDate(finalDeadline.getDate() + graceDays);
+                        }
+
+                        const isPastEnd = endDate ? now > endDate : true;
+                        const isPastGrace = finalDeadline ? now > finalDeadline : true;
+                        const isInGrace = isPastEnd && !isPastGrace;
+
                         return (
                           <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-4 py-4 font-medium text-slate-700">
-                              {profile.email}
-                              {isMasterAdmin && <span className="ml-2 text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">MASTER</span>}
+                              <div>{profile.email}</div>
+                              {isMasterAdmin && <span className="text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">MASTER</span>}
                             </td>
                             <td className="px-4 py-4">
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
@@ -528,10 +563,10 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                                 onChange={(e) => handleChangeRole(profile.id, e.target.value as UserRole)}
                                 value={profile.role}
                                 disabled={!!isLockedRole}
-                                className={`text-[10px] font-bold border border-slate-200 rounded px-2 py-1.5 outline-none bg-white w-32 ${!!isLockedRole ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100' : 'text-slate-600 hover:border-indigo-300'}`}
+                                className={`text-[10px] font-bold border border-slate-200 rounded px-2 py-1.5 outline-none bg-white w-28 ${!!isLockedRole ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100' : 'text-slate-600 hover:border-indigo-300'}`}
                               >
                                 {!!isLockedRole ? (
-                                   <option value={profile.role}>Fixed Role</option>
+                                   <option value={profile.role}>Fixed</option>
                                 ) : (
                                   <>
                                     <option value="receptionist">Receptionist</option>
@@ -545,18 +580,30 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                               <>
                                 <td className="px-4 py-4">
                                   {!isMasterAdmin ? (
-                                    <select 
-                                      value={profile.subscription_status || 'inactive'} 
-                                      onChange={(e) => handleUpdateSubscription(profile.id, e.target.value as 'active' | 'inactive')}
-                                      className={`text-[10px] font-bold border rounded px-2 py-1.5 outline-none w-28 uppercase transition-colors ${
-                                        profile.subscription_status === 'active' 
-                                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
-                                          : 'border-rose-200 bg-rose-50 text-rose-700'
-                                      }`}
-                                    >
-                                      <option value="active">Active</option>
-                                      <option value="inactive">Inactive</option>
-                                    </select>
+                                    <div className="flex flex-col gap-1">
+                                      <select 
+                                        value={profile.subscription_status || 'inactive'} 
+                                        onChange={(e) => handleUpdateSubscription(profile.id, e.target.value as 'active' | 'inactive')}
+                                        className={`text-[10px] font-bold border rounded px-2 py-1 outline-none w-24 uppercase transition-colors ${
+                                          profile.subscription_status === 'active' 
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
+                                            : 'border-rose-200 bg-rose-50 text-rose-700'
+                                        }`}
+                                      >
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                      </select>
+                                      {isInGrace && (
+                                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 animate-pulse text-center">
+                                          TOLERANSI
+                                        </span>
+                                      )}
+                                      {isPastGrace && profile.subscription_status === 'active' && (
+                                        <span className="text-[9px] font-extrabold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 text-center">
+                                          EXPIRED
+                                        </span>
+                                      )}
+                                    </div>
                                   ) : (
                                     <div className="flex items-center gap-1.5">
                                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -566,14 +613,68 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                                 </td>
                                 <td className="px-4 py-4">
                                   {!isMasterAdmin ? (
-                                    <input 
-                                      type="date"
-                                      value={profile.subscription_end_date ? new Date(profile.subscription_end_date).toISOString().split('T')[0] : ''}
-                                      onChange={(e) => handleUpdateSubscription(profile.id, profile.subscription_status || 'inactive', e.target.value)}
-                                      className="text-[10px] border border-slate-200 rounded px-2 py-1.5 w-32 text-slate-600 focus:border-indigo-500 outline-none"
-                                    />
+                                    <div className="flex flex-col gap-0.5">
+                                      <input 
+                                        type="date"
+                                        value={profile.subscription_end_date ? new Date(profile.subscription_end_date).toISOString().split('T')[0] : ''}
+                                        onChange={(e) => handleUpdateSubscription(profile.id, profile.subscription_status || 'inactive', e.target.value, profile.grace_period_days)}
+                                        className="text-[10px] border border-slate-200 rounded px-2 py-1 w-32 text-slate-600 focus:border-indigo-500 outline-none"
+                                      />
+                                      {finalDeadline && (
+                                        <span className="text-[9px] text-slate-400">
+                                          Batas: {finalDeadline.toISOString().split('T')[0]}
+                                        </span>
+                                      )}
+                                    </div>
                                   ) : (
                                     <span className="text-[10px] text-slate-400 font-mono">∞</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4">
+                                  {!isMasterAdmin ? (
+                                    <select
+                                      value={profile.grace_period_days ?? 3}
+                                      onChange={(e) => handleUpdateSubscription(
+                                        profile.id, 
+                                        profile.subscription_status || 'inactive', 
+                                        profile.subscription_end_date, 
+                                        parseInt(e.target.value, 10)
+                                      )}
+                                      className="text-[10px] font-bold border border-slate-200 rounded px-2 py-1 outline-none bg-white text-slate-700"
+                                    >
+                                      <option value={0}>0 Hari (Langsung Blokir)</option>
+                                      <option value={1}>1 Hari</option>
+                                      <option value={3}>3 Hari (Standar)</option>
+                                      <option value={5}>5 Hari</option>
+                                      <option value={7}>7 Hari (1 Minggu)</option>
+                                      <option value={14}>14 Hari</option>
+                                    </select>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400">-</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4">
+                                  {!isMasterAdmin ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleExtendMonthly(profile.id, 1)}
+                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded border border-indigo-200 transition-all active:scale-95"
+                                        title="Perpanjang 1 Bulan"
+                                      >
+                                        +1 Bulan
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleExtendMonthly(profile.id, 12)}
+                                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded border border-emerald-200 transition-all active:scale-95"
+                                        title="Perpanjang 1 Tahun"
+                                      >
+                                        +1 Thn
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-emerald-600 font-bold">Aktif Permanen</span>
                                   )}
                                 </td>
                               </>

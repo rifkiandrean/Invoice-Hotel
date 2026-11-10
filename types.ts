@@ -9,6 +9,8 @@ export interface UserProfile {
   updated_at?: string;
   subscription_status?: 'active' | 'inactive';
   subscription_end_date?: string;
+  grace_period_days?: number; // Toleransi waktu jatuh tempo (misal: 3 hari, 7 hari)
+  billing_cycle?: 'monthly' | 'yearly' | 'custom';
 }
 
 export interface HotelSettings {

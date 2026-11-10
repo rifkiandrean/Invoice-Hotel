@@ -430,15 +430,26 @@ const App: React.FC = () => {
 
   if (!session) return <Auth hotelName={activeSettings.name} />;
 
-  // --- Subscription Check Logic ---
+  // --- Subscription Check Logic with Grace Period (Waktu Jatuh Tempo) ---
   const isSuperAdmin = userProfile?.role === 'super-admin' || userProfile?.email === MASTER_ADMIN;
-  const hasActiveSubscription = userProfile?.subscription_status === 'active' && 
-    (userProfile?.subscription_end_date ? new Date(userProfile.subscription_end_date) > new Date() : false);
   
-  if (!isSuperAdmin && !hasActiveSubscription && userProfile) {
+  const isSubscriptionValid = (() => {
+    if (!userProfile) return false;
+    if (userProfile.subscription_status !== 'active') return false;
+    if (!userProfile.subscription_end_date) return false;
+
+    const endDate = new Date(userProfile.subscription_end_date);
+    const graceDays = typeof userProfile.grace_period_days === 'number' ? userProfile.grace_period_days : 3;
+    const finalDeadline = new Date(endDate);
+    finalDeadline.setDate(finalDeadline.getDate() + graceDays);
+
+    return new Date() <= finalDeadline;
+  })();
+  
+  if (!isSuperAdmin && !isSubscriptionValid && userProfile) {
     return <SubscriptionBlock user={userProfile} onLogout={handleLogout} />;
   }
-  // --------------------------------
+  // ----------------------------------------------------------------------
 
   const invoiceCalculations = currentInvoice ? {
     subtotal: calculateSubtotal(currentInvoice),
@@ -520,6 +531,64 @@ const App: React.FC = () => {
         {viewMode === 'list' && (
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-[1600px] w-full mx-auto animate-fade-in flex flex-col h-full">
             <div className="flex-1">
+              
+              {/* Grace Period / Expiration Notice */}
+              {(() => {
+                if (!userProfile || isSuperAdmin || !userProfile.subscription_end_date) return null;
+                const now = new Date();
+                const endDate = new Date(userProfile.subscription_end_date);
+                const graceDays = userProfile.grace_period_days ?? 3;
+                const finalDeadline = new Date(endDate);
+                finalDeadline.setDate(finalDeadline.getDate() + graceDays);
+
+                const isPastEnd = now > endDate;
+                const isWithinGrace = isPastEnd && now <= finalDeadline;
+                const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const daysLeftInGrace = Math.ceil((finalDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+                if (isWithinGrace) {
+                  return (
+                    <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                          <p className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                            Masa Jatuh Tempo Langganan Telah Tiba (Masa Toleransi Aktif)
+                          </p>
+                          <p className="text-xs text-amber-700 mt-0.5">
+                            Langganan berakhir pada <strong>{endDate.toLocaleDateString('id-ID')}</strong>. Anda memiliki waktu toleransi <strong>{daysLeftInGrace} hari lagi</strong> (hingga {finalDeadline.toLocaleDateString('id-ID')}) sebelum sistem dikunci.
+                          </p>
+                        </div>
+                      </div>
+                      <a 
+                        href="https://wa.me/6281324003413?text=Halo%20Admin,%20saya%20ingin%20konfirmasi%20pembayaran%20langganan%20bulanan%20HotelFlow."
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl shrink-0 text-center transition-all shadow"
+                      >
+                        Perpanjang Sekarang
+                      </a>
+                    </div>
+                  );
+                } else if (daysUntilEnd <= 5 && daysUntilEnd > 0) {
+                  return (
+                    <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">📅</span>
+                        <div>
+                          <p className="text-xs font-bold text-indigo-900">
+                            Pengingat Langganan Bulanan: Jatuh tempo dalam {daysUntilEnd} hari ({endDate.toLocaleDateString('id-ID')})
+                          </p>
+                          <p className="text-[11px] text-indigo-600">
+                            Toleransi pembayaran tersedia {graceDays} hari setelah tanggal jatuh tempo.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               
               {/* Banner Slider */}
               <div className="mb-8 rounded-3xl overflow-hidden relative shadow-lg shadow-indigo-100 group h-40 lg:h-48 transition-all">
