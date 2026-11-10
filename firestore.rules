@@ -13,8 +13,11 @@ service cloud.firestore {
       );
     }
 
-    function isStaff() {
-      return isSignedIn();
+    function isAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
     }
 
     // Default deny
@@ -24,9 +27,7 @@ service cloud.firestore {
 
     // Users / Akun collection
     match /users/{userId} {
-      // Authenticated users can read user records (staff list)
       allow read: if isSignedIn();
-      // Users can update their own profile, Super-admin can create and update any profile
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
       allow delete: if isSuperAdmin();
@@ -42,7 +43,8 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      // Hanya Admin dan Super Admin yang berhak menghapus invoice
+      allow delete: if isAdmin();
     }
   }
 }

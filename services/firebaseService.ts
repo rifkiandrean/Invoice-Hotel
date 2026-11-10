@@ -5,6 +5,7 @@ import {
   getDoc, 
   getDocs, 
   setDoc, 
+  deleteDoc, 
   collection, 
   query, 
   orderBy, 
@@ -276,6 +277,17 @@ export const upsertInvoiceToFirebase = async (invoice: Invoice): Promise<boolean
     return true;
   } catch (err) {
     console.error("Upsert Invoice to Firebase Error:", err);
+    return false;
+  }
+};
+
+export const deleteInvoiceFromFirebase = async (invoiceId: string): Promise<boolean> => {
+  try {
+    const invoiceRef = doc(db, 'invoices', invoiceId);
+    await deleteDoc(invoiceRef);
+    return true;
+  } catch (err) {
+    console.error("Delete Invoice from Firebase Error:", err);
     return false;
   }
 };

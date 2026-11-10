@@ -13,6 +13,7 @@ import { ROOM_TYPES, VILLA_ROOM_TYPES, GUEST_TYPES, HOTEL_INFO, VILLA_INFO, TAX_
 import { 
   fetchInvoicesFromFirebase, 
   upsertInvoiceToFirebase, 
+  deleteInvoiceFromFirebase,
   saveSettingsToFirebase, 
   fetchSettingsFromFirebase,
   onAuthStateChange,
@@ -286,6 +287,40 @@ const App: React.FC = () => {
         alert('Gagal menyimpan invoice ke Firebase.');
       }
       setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
+  const canDeleteInvoice = userProfile?.role === 'admin' || userProfile?.role === 'super-admin' || userProfile?.email === MASTER_ADMIN;
+
+  const handleDeleteInvoice = async (invoiceToDelete: Invoice) => {
+    if (!canDeleteInvoice) {
+      alert('Akses Ditolak: Hanya Admin atau Super Admin yang berhak menghapus invoice.');
+      return;
+    }
+
+    const confirmMessage = `Apakah Anda yakin ingin MENGHAPUS PERMANEN invoice "${invoiceToDelete.invoiceNumber}" atas nama "${invoiceToDelete.guest.name || 'Tamu'}"?\n\nTindakan ini tidak dapat dibatalkan.`;
+    if (!confirm(confirmMessage)) return;
+
+    setSyncStatus('syncing');
+    try {
+      const success = await deleteInvoiceFromFirebase(invoiceToDelete.id);
+      if (success) {
+        setInvoices(prev => prev.filter(inv => inv.id !== invoiceToDelete.id));
+        if (currentInvoice?.id === invoiceToDelete.id) {
+          setCurrentInvoice(null);
+          setViewMode('list');
+        }
+        setSyncStatus('success');
+        alert(`Invoice "${invoiceToDelete.invoiceNumber}" berhasil dihapus.`);
+      } else {
+        setSyncStatus('error');
+        alert('Gagal menghapus invoice dari database. Pastikan koneksi internet stabil.');
+      }
+    } catch (err: any) {
+      setSyncStatus('error');
+      alert('Terjadi kesalahan saat menghapus invoice: ' + (err.message || ''));
+    } finally {
+      setTimeout(() => setSyncStatus('idle'), 2000);
     }
   };
 
@@ -708,6 +743,8 @@ const App: React.FC = () => {
                 onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
                 formatCurrency={formatCurrency}
                 calculateTotal={calculateTotal}
+                canDelete={canDeleteInvoice}
+                onDelete={handleDeleteInvoice}
               />
 
               <MobileDashboardList 
@@ -715,6 +752,8 @@ const App: React.FC = () => {
                 onSelect={(inv) => { setCurrentInvoice(inv); setViewMode('view'); }}
                 formatCurrency={formatCurrency}
                 calculateTotal={calculateTotal}
+                canDelete={canDeleteInvoice}
+                onDelete={handleDeleteInvoice}
               />
             </div>
 
@@ -770,6 +809,18 @@ const App: React.FC = () => {
                 Kembali
               </button>
               <div className="flex gap-2 flex-1 sm:flex-none justify-end">
+                {canDeleteInvoice && (
+                  <button 
+                    onClick={() => handleDeleteInvoice(currentInvoice)} 
+                    className="px-3 py-2 border border-rose-200 text-rose-600 rounded-xl text-[10px] lg:text-xs font-bold hover:bg-rose-50 flex items-center gap-1.5 transition-colors"
+                    title="Hapus Invoice (Khusus Admin)"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Hapus
+                  </button>
+                )}
                 <button onClick={() => setViewMode('create')} className="px-3 py-2 border border-slate-200 rounded-xl text-[10px] lg:text-xs font-bold text-slate-600 hover:bg-slate-50">Edit</button>
                 <button onClick={() => window.print()} className="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-[10px] lg:text-xs font-bold hover:bg-slate-300">Print</button>
                 <button onClick={downloadPDF} className="bg-slate-900 text-white px-4 lg:px-6 py-2 rounded-xl text-[10px] lg:text-xs font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200">
