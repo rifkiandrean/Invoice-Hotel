@@ -6,6 +6,7 @@ import {
   fetchProfiles, 
   signUpNewUser, 
   upsertProfile,
+  deleteProfile,
   fetchInvoicesFromFirebase 
 } from '../services/firebaseService';
 import * as XLSX from 'xlsx';
@@ -131,7 +132,11 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
         subscription_status: status,
         updated_at: new Date().toISOString()
       };
-      if (date !== undefined) updates.subscription_end_date = date;
+      if (date !== undefined) {
+        // If date is in YYYY-MM-DD format from HTML input, set to end of that day (23:59:59)
+        const dateObj = date.includes('T') ? new Date(date) : new Date(`${date}T23:59:59.999Z`);
+        updates.subscription_end_date = isNaN(dateObj.getTime()) ? date : dateObj.toISOString();
+      }
       if (graceDays !== undefined) updates.grace_period_days = graceDays;
       
       try {
@@ -161,6 +166,32 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     newEnd.setMonth(newEnd.getMonth() + monthsToAdd);
 
     await handleUpdateSubscription(userId, 'active', newEnd.toISOString(), profile.grace_period_days ?? 3);
+  };
+
+  const handleDeleteAccount = async (profile: UserProfile) => {
+    const emailLower = profile.email.toLowerCase();
+    if (emailLower === MASTER_ADMIN) {
+      alert("Akun MASTER (" + MASTER_ADMIN + ") dilindungi dan tidak dapat dihapus!");
+      return;
+    }
+
+    const confirmDelete = confirm(
+      `Apakah Anda yakin ingin MENGHAPUS AKUN "${profile.email}"?\n\nPengguna ini tidak akan dapat login lagi dan hak aksesnya akan dicabut permanen.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const success = await deleteProfile(profile.id);
+      if (success) {
+        alert(`Akun "${profile.email}" berhasil dihapus.`);
+        loadProfiles();
+      } else {
+        alert(`Gagal menghapus akun. Pastikan Anda memiliki hak akses.`);
+      }
+    } catch (err: any) {
+      console.error("Delete account error:", err);
+      alert("Terjadi kesalahan saat menghapus akun: " + (err.message || ''));
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'signature' | 'stamp' | 'logo') => {
@@ -521,6 +552,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                             <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Aksi Langganan</th>
                           </>
                         )}
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase text-center">Hapus</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -679,6 +711,22 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                                 </td>
                               </>
                             )}
+                            <td className="px-4 py-4 text-center">
+                              {!isMasterAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAccount(profile)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                  title="Hapus Akun Ini"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-300 font-mono" title="Master Admin tidak dapat dihapus">🔒</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}

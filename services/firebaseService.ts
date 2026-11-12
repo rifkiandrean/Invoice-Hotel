@@ -174,6 +174,17 @@ export const getCurrentUserProfile = async (userId: string): Promise<UserProfile
   }
 };
 
+export const deleteProfile = async (userId: string): Promise<boolean> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await deleteDoc(userRef);
+    return true;
+  } catch (err: any) {
+    console.error("deleteProfile Error:", err);
+    return false;
+  }
+};
+
 // --- Storage Upload ---
 export const uploadAsset = async (file: File, _settings: HotelSettings, folder: string): Promise<string | null> => {
   const fileExt = file.name.split('.').pop();
