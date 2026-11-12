@@ -74,6 +74,10 @@ const App: React.FC = () => {
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
 
+  // Sesi Login: 1 Jam (60 menit)
+  const SESSION_DURATION_MS = 60 * 60 * 1000;
+  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(3600);
+
   // Banner State
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
@@ -109,6 +113,20 @@ const App: React.FC = () => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
       setSession(newSession);
       if (newSession?.user) {
+        // Inisialisasi atau validasi waktu login sesi 1 jam
+        const storedLoginTime = localStorage.getItem('hotelflow_login_timestamp');
+        const now = Date.now();
+        if (!storedLoginTime) {
+          localStorage.setItem('hotelflow_login_timestamp', now.toString());
+        } else {
+          const elapsed = now - parseInt(storedLoginTime, 10);
+          if (elapsed >= SESSION_DURATION_MS) {
+            // Sesi sudah lebih dari 1 jam
+            await performSignOut('Waktu sesi login 1 jam telah berakhir demi alasan keamanan. Silakan login kembali.');
+            return;
+          }
+        }
+
         let profile = await getCurrentUserProfile(newSession.user.id);
         const email = newSession.user.email?.toLowerCase();
         
@@ -161,12 +179,35 @@ const App: React.FC = () => {
           setUserProfile(profile);
         }
       } else {
+        localStorage.removeItem('hotelflow_login_timestamp');
         setUserProfile(null);
         setViewMode('list');
       }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Timer Interval Pengecekan Sesi 1 Jam (Setiap Detik)
+  useEffect(() => {
+    if (!session) return;
+
+    const checkInterval = setInterval(() => {
+      const storedLoginTime = localStorage.getItem('hotelflow_login_timestamp');
+      if (storedLoginTime) {
+        const elapsed = Date.now() - parseInt(storedLoginTime, 10);
+        const remainingMs = Math.max(0, SESSION_DURATION_MS - elapsed);
+        const remainingSec = Math.floor(remainingMs / 1000);
+        setSessionRemainingSeconds(remainingSec);
+
+        if (elapsed >= SESSION_DURATION_MS) {
+          clearInterval(checkInterval);
+          performSignOut('Waktu sesi login Anda (1 jam) telah habis demi keamanan. Silakan login kembali.');
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(checkInterval);
+  }, [session]);
 
   const loadCloudSettings = useCallback(async (category: 'hotel' | 'villa') => {
     if (!session) return;
@@ -240,16 +281,24 @@ const App: React.FC = () => {
     }
   };
 
+  const performSignOut = async (message?: string) => {
+    try {
+      localStorage.removeItem('hotelflow_login_timestamp');
+      await signOut();
+      setSession(null);
+      setUserProfile(null);
+      setViewMode('list');
+      if (message) {
+        alert(message);
+      }
+    } catch (err) {
+      console.error("Error during sign out:", err);
+    }
+  };
+
   const handleLogout = async () => {
     if (confirm('Apakah Anda yakin ingin keluar?')) {
-      try {
-        await signOut();
-        setSession(null);
-        setUserProfile(null);
-        setViewMode('list');
-      } catch (err) {
-        console.error("Error during sign out:", err);
-      }
+      await performSignOut();
     }
   };
 
@@ -539,6 +588,16 @@ const App: React.FC = () => {
                 {syncStatus}
               </div>
             )}
+            {/* Indikator Waktu Sesi 1 Jam */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-[10px] font-bold text-slate-600 transition-colors" title="Waktu sesi login keamanan (maksimal 1 jam)">
+              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-mono">
+                {Math.floor(sessionRemainingSeconds / 60).toString().padStart(2, '0')}:{(sessionRemainingSeconds % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+
             <div className="hidden md:flex flex-col items-end mr-2">
               <div className="flex items-center gap-2">
                 {userProfile?.role && (
