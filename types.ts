@@ -6,6 +6,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   fullName?: string;
+  photoURL?: string;
   updated_at?: string;
   subscription_status?: 'active' | 'inactive';
   subscription_end_date?: string;

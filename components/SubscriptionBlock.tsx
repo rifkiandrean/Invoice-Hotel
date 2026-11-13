@@ -83,7 +83,7 @@ export const SubscriptionBlock: React.FC<Props> = ({ user, onLogout }) => {
           <div className="border-t border-slate-100 pt-5 space-y-3">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kontak Konfirmasi Pembayaran</p>
             <a 
-              href="https://wa.me/6281324003413?text=Halo%20Admin,%20saya%20ingin%20perpanjang%20langganan%20bulanan%20aplikasi%20HotelFlow%20untuk%20email:%20"
+              href="https://wa.me/6282115123431?text=Halo%20Admin,%20saya%20ingin%20perpanjang%20langganan%20bulanan%20aplikasi%20HotelFlow%20untuk%20email:%20"
               target="_blank"
               rel="noreferrer"
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-xl font-bold transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-sm"

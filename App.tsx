@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Invoice, ViewMode, InvoiceItem, Payment, HotelSettings, UserProfile } from './types';
 import { InvoicePreview } from './components/InvoicePreview';
 import { SettingsPage } from './components/SettingsPage';
@@ -77,6 +77,25 @@ const App: React.FC = () => {
   // Sesi Login: 1 Jam (60 menit)
   const SESSION_DURATION_MS = 60 * 60 * 1000;
   const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(3600);
+
+  // Profile Popover Menu State
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   // Banner State
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -164,7 +183,9 @@ const App: React.FC = () => {
             email: newSession.user.email, 
             role: 'super-admin',
             subscription_status: 'active',
-            subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
+            subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString(),
+            fullName: newSession.user.displayName || 'Super Admin',
+            photoURL: newSession.user.photoURL || undefined
           });
         } else if (email === 'hotelpangandaranblueorchid@gmail.com') {
           setUserProfile({ 
@@ -173,10 +194,19 @@ const App: React.FC = () => {
             role: 'receptionist',
             subscription_status: profile?.subscription_status || 'active', 
             subscription_end_date: profile?.subscription_end_date,
-            fullName: profile?.fullName
+            fullName: profile?.fullName || newSession.user.displayName || 'Hotel Pangandaran',
+            photoURL: newSession.user.photoURL || profile?.photoURL || undefined
           });
         } else {
-          setUserProfile(profile);
+          if (profile) {
+            setUserProfile({
+              ...profile,
+              fullName: profile.fullName || newSession.user.displayName || undefined,
+              photoURL: newSession.user.photoURL || profile.photoURL || undefined
+            });
+          } else {
+            setUserProfile(profile);
+          }
         }
       } else {
         localStorage.removeItem('hotelflow_login_timestamp');
@@ -578,7 +608,7 @@ const App: React.FC = () => {
             </nav>
           </div>
           
-          <div className="flex items-center gap-2 lg:gap-4">
+          <div className="flex items-center gap-2 lg:gap-3">
             {syncStatus !== 'idle' && (
               <div className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${
                 syncStatus === 'syncing' ? 'bg-slate-100 text-slate-500' :
@@ -588,35 +618,181 @@ const App: React.FC = () => {
                 {syncStatus}
               </div>
             )}
-            {/* Indikator Waktu Sesi 1 Jam */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-[10px] font-bold text-slate-600 transition-colors" title="Waktu sesi login keamanan (maksimal 1 jam)">
-              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-mono">
-                {Math.floor(sessionRemainingSeconds / 60).toString().padStart(2, '0')}:{(sessionRemainingSeconds % 60).toString().padStart(2, '0')}
-              </span>
-            </div>
 
-            <div className="hidden md:flex flex-col items-end mr-2">
-              <div className="flex items-center gap-2">
-                {userProfile?.role && (
-                   <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                     userProfile.role === 'super-admin' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
-                     userProfile.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
-                   }`}>{userProfile.role.replace('-', ' ')}</span>
-                )}
-                <span className="text-[10px] text-slate-600 font-bold">{session?.user?.email}</span>
-              </div>
-            </div>
-            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Keluar">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            </button>
-            <button onClick={createNewInvoice} className="bg-indigo-600 text-white px-3 lg:px-5 py-2 rounded-xl text-xs lg:text-sm font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1 lg:gap-2">
+            <button onClick={createNewInvoice} className="bg-indigo-600 text-white px-3 lg:px-4 py-2 rounded-xl text-xs lg:text-sm font-bold shadow-md hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
               <span className="hidden sm:inline">Buat Invoice</span>
               <span className="sm:hidden">Buat</span>
             </button>
+
+            {/* Foto Profil Akun Google (Tombol Profil Login & Sesi) */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowProfileMenu(prev => !prev)}
+                className={`flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full border transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-95 ${
+                  showProfileMenu 
+                    ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-500/20 shadow-sm' 
+                    : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm'
+                }`}
+                title="Lihat Profil Akun Google & Sisa Waktu Sesi"
+                aria-label="Profil Akun"
+              >
+                {/* Avatar Foto Profil Google / Fallback Inisial */}
+                <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-2 ring-white shrink-0">
+                  {session?.user?.photoURL || userProfile?.photoURL ? (
+                    <img
+                      src={session?.user?.photoURL || userProfile?.photoURL}
+                      alt={session?.user?.displayName || 'Avatar'}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span>
+                      {((session?.user?.displayName || userProfile?.fullName || session?.user?.email || 'U')[0] || 'U').toUpperCase()}
+                    </span>
+                  )}
+                  {/* Status dot online */}
+                  <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white"></span>
+                </div>
+
+                {/* Nama Ringkas & Role di Desktop */}
+                <div className="hidden md:flex flex-col items-start text-left leading-none">
+                  <span className="text-[11px] font-bold text-slate-800 max-w-[110px] truncate">
+                    {session?.user?.displayName || userProfile?.fullName || session?.user?.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-400 capitalize mt-0.5">
+                    {userProfile?.role ? userProfile.role.replace('-', ' ') : 'User'}
+                  </span>
+                </div>
+
+                {/* Arrow Icon */}
+                <svg
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                    showProfileMenu ? 'rotate-180 text-indigo-600' : 'group-hover:text-slate-600'
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Popover / Dropdown Menu Profil Login */}
+              {showProfileMenu && (
+                <div className="absolute right-0 top-full mt-2.5 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-50 animate-fade-in">
+                  {/* Header Profil */}
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold text-base shadow-md ring-2 ring-indigo-50 shrink-0">
+                      {session?.user?.photoURL || userProfile?.photoURL ? (
+                        <img
+                          src={session?.user?.photoURL || userProfile?.photoURL}
+                          alt={session?.user?.displayName || 'Google Avatar'}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>
+                          {((session?.user?.displayName || userProfile?.fullName || session?.user?.email || 'U')[0] || 'U').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-bold text-slate-900 truncate">
+                        {session?.user?.displayName || userProfile?.fullName || 'Pengguna Akun Google'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5" title={session?.user?.email}>
+                        {session?.user?.email}
+                      </p>
+                      {userProfile?.role && (
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          userProfile.role === 'super-admin' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                          userProfile.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {userProfile.role.replace('-', ' ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sisa Waktu Sesi 1 Jam */}
+                  <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-700">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-[11px] font-bold">Sisa Sesi Login</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full font-mono text-xs font-extrabold ${
+                        sessionRemainingSeconds < 300 
+                          ? 'bg-rose-100 text-rose-700 animate-pulse' 
+                          : 'bg-indigo-100 text-indigo-700'
+                      }`}>
+                        {Math.floor(sessionRemainingSeconds / 60).toString().padStart(2, '0')}:{(sessionRemainingSeconds % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${
+                          sessionRemainingSeconds < 300 ? 'bg-rose-500' : 'bg-indigo-600'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, (sessionRemainingSeconds / 3600) * 100))}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-1.5 leading-snug">
+                      {sessionRemainingSeconds < 300 
+                        ? '⚠️ Sesi akan segera berakhir dalam beberapa menit demi keamanan.'
+                        : 'Sesi diperbarui setiap 1 jam demi keamanan data hotel.'}
+                    </p>
+                  </div>
+
+                  {/* Status Langganan & Jatuh Tempo */}
+                  <div className="mt-2.5 px-3 py-2 bg-slate-50/70 rounded-xl border border-slate-100 text-[10px] space-y-1">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Status Langganan</span>
+                      <span className={`font-bold capitalize ${
+                        userProfile?.subscription_status === 'active' ? 'text-emerald-600' :
+                        userProfile?.subscription_status === 'trial' ? 'text-indigo-600' : 'text-amber-600'
+                      }`}>
+                        {userProfile?.subscription_status || 'Aktif'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Jatuh Tempo Pembayaran</span>
+                      <span className="font-bold text-slate-700">
+                        {isSuperAdmin
+                          ? 'Permanen (Super Admin)'
+                          : userProfile?.subscription_end_date
+                          ? new Date(userProfile.subscription_end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : 'Belum diatur'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tombol Logout di Dalam Menu Profil */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm"
+                    >
+                      <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      <span>Keluar Akun (Logout)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -655,7 +831,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <a 
-                        href="https://wa.me/6281324003413?text=Halo%20Admin,%20saya%20ingin%20konfirmasi%20pembayaran%20langganan%20bulanan%20HotelFlow."
+                        href="https://wa.me/6282115123431?text=Halo%20Admin,%20saya%20ingin%20konfirmasi%20pembayaran%20langganan%20bulanan%20HotelFlow."
                         target="_blank"
                         rel="noreferrer"
                         className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl shrink-0 text-center transition-all shadow"
@@ -819,7 +995,7 @@ const App: React.FC = () => {
             {/* Global Dashboard Footer */}
             <footer className="mt-8 pb-6 text-center">
               <p className="text-[10px] lg:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-                Copyright 2026 by <a href="https://www.vell.web.id" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">VELL</a>
+                Copyright 2026 by <a href="https://www.vellstudio.my.id" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors">VELL STUDIO</a>
               </p>
             </footer>
           </div>

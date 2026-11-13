@@ -11,6 +11,7 @@ import {
 } from '../services/firebaseService';
 import * as XLSX from 'xlsx';
 import { HOTEL_INFO } from '../constants';
+import { SubscriptionBillingModal, InvoiceStatsSummary } from './SubscriptionBillingModal';
 
 interface Props {
   settings: HotelSettings;
@@ -37,14 +38,41 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'receptionist' as UserRole });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
+  // Billing & Invoice Stats States
+  const [invoiceStats, setInvoiceStats] = useState<InvoiceStatsSummary>({
+    totalInvoices: 0,
+    totalItems: 0,
+    hotelInvoices: 0,
+    villaInvoices: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [billingProfile, setBillingProfile] = useState<UserProfile | null>(null);
+
   // Sync local form state when settings prop changes (e.g., after cloud sync)
   useEffect(() => {
     setFormData(settings);
   }, [settings]);
 
+  const loadInvoiceStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      const allInvoices = await fetchInvoicesFromFirebase();
+      const totalInvoices = allInvoices.length;
+      const totalItems = allInvoices.reduce((sum, inv) => sum + (inv.items?.length || 0), 0);
+      const hotelInvoices = allInvoices.filter(inv => (inv.category || 'hotel') === 'hotel').length;
+      const villaInvoices = allInvoices.filter(inv => inv.category === 'villa').length;
+      setInvoiceStats({ totalInvoices, totalItems, hotelInvoices, villaInvoices });
+    } catch (err) {
+      console.error('Error fetching invoice stats:', err);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'accounts' && (currentUserRole === 'admin' || currentUserRole === 'super-admin')) {
       loadProfiles();
+      loadInvoiceStats();
     }
   }, [activeTab, currentUserRole]);
 
@@ -532,10 +560,25 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
             </section>
 
             <section>
-               <h3 className="text-lg font-bold text-slate-800 mb-4">Daftar Akun Terdaftar</h3>
+               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                 <h3 className="text-lg font-bold text-slate-800">Daftar Akun Terdaftar</h3>
+                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                   <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold">
+                     Hotel: {formData.name || settings.name}
+                   </span>
+                   <span className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
+                     {isLoadingStats
+                       ? 'Menghitung item invoice...'
+                       : `${invoiceStats.totalInvoices} Invoice • ${invoiceStats.totalItems} Item Invoice`}
+                   </span>
+                   <span className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                     VELL STUDIO: Rp 30.000/bln + Admin Rp 3.000
+                   </span>
+                 </div>
+               </div>
                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm text-[11px] text-slate-400 mb-2 p-2 bg-slate-50 flex gap-2 items-center">
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                  Subscription hanya dikelola oleh <strong>{MASTER_ADMIN}</strong>.
+                  Subscription hanya dikelola oleh <strong>{MASTER_ADMIN}</strong>. Gunakan tombol <strong>Download Billing</strong> untuk mengunduh tagihan bulanan resmi dari <strong>VELL STUDIO</strong>.
                </div>
                <div className="border border-slate-200 rounded-2xl overflow-auto shadow-sm">
                   <table className="w-full text-left text-sm whitespace-nowrap">
@@ -552,6 +595,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                             <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Aksi Langganan</th>
                           </>
                         )}
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase text-center">Billing</th>
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase text-center">Hapus</th>
                       </tr>
                     </thead>
@@ -712,6 +756,22 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                               </>
                             )}
                             <td className="px-4 py-4 text-center">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setBillingProfile(profile);
+                                  await loadInvoiceStats();
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-[10px] font-bold transition-all active:scale-95 shadow-sm"
+                                title="Download Billing Subscription Bulanan (VELL STUDIO)"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span>Download Billing</span>
+                              </button>
+                            </td>
+                            <td className="px-4 py-4 text-center">
                               {!isMasterAdmin ? (
                                 <button
                                   type="button"
@@ -809,6 +869,14 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
           </div>
         )}
       </div>
+
+      <SubscriptionBillingModal
+        isOpen={!!billingProfile}
+        onClose={() => setBillingProfile(null)}
+        profile={billingProfile}
+        hotelSettings={formData}
+        invoiceStats={invoiceStats}
+      />
     </div>
   );
 };

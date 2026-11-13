@@ -107,13 +107,15 @@ export const signOut = async () => {
   return await firebaseSignOut(auth);
 };
 
-export const onAuthStateChange = (callback: (session: { user: { id: string; email?: string | null } } | null) => void) => {
+export const onAuthStateChange = (callback: (session: { user: { id: string; email?: string | null; displayName?: string | null; photoURL?: string | null } } | null) => void) => {
   const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
     if (user) {
       callback({
         user: {
           id: user.uid,
-          email: user.email
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL
         }
       });
     } else {
