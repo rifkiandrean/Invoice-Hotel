@@ -17,6 +17,7 @@ interface Props {
   settings: HotelSettings;
   onSave: (settings: HotelSettings) => void;
   currentUserRole?: UserRole;
+  onCurrentUserProfileUpdated?: (profile: UserProfile) => void;
 }
 
 // Configuration for Special Accounts
@@ -26,7 +27,9 @@ const LOCKED_ACCOUNTS: Record<string, UserRole> = {
   'hotelpangandaranblueorchid@gmail.com': 'receptionist'
 };
 
-export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRole }) => {
+const SESSION_HOUR_PRESETS = [1, 2, 4, 6, 8, 12, 24, 48, 72, 168];
+
+export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRole, onCurrentUserProfileUpdated }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'accounts' | 'backup'>('profile');
   const [formData, setFormData] = React.useState<HotelSettings>(settings);
   const [isUploading, setIsUploading] = useState<string | null>(null);
@@ -35,8 +38,14 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   
   // Account Management States
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'receptionist' as UserRole });
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    role: 'receptionist' as UserRole,
+    session_duration_hours: 24
+  });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [customSessionEdit, setCustomSessionEdit] = useState<{ id: string; hours: string } | null>(null);
 
   // Billing & Invoice Stats States
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStatsSummary>({
@@ -122,11 +131,12 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
         email: emailLower,
         role: newUser.role,
         subscription_status: 'active',
+        session_duration_hours: newUser.session_duration_hours || 24,
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
       alert(`Email ${emailLower} berhasil diotorisasi! Staf dapat langsung login dengan akun Google mereka.`);
-      setNewUser({ email: '', password: '', role: 'receptionist' });
+      setNewUser({ email: '', password: '', role: 'receptionist', session_duration_hours: 24 });
       loadProfiles();
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -139,12 +149,35 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     if (!confirm(`Ubah role pengguna ini menjadi ${newRole}?`)) return;
     const profile = profiles.find(p => p.id === userId);
     if (profile) {
-      const { error } = await upsertProfile({ ...profile, role: newRole });
+      const updated = { ...profile, role: newRole };
+      const { error } = await upsertProfile(updated);
       if (error) {
         alert("Gagal mengubah role: " + error.message);
       } else {
+        onCurrentUserProfileUpdated?.(updated);
         loadProfiles();
       }
+    }
+  };
+
+  const handleChangeSessionDuration = async (userId: string, hours: number) => {
+    const clampedHours = Math.max(1, Math.min(720, Math.round(hours)));
+    const profile = profiles.find(p => p.id === userId);
+    if (!profile) return;
+
+    const updated: UserProfile = {
+      ...profile,
+      session_duration_hours: clampedHours,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await upsertProfile(updated);
+    if (error) {
+      alert("Gagal memperbarui durasi sesi: " + error.message);
+    } else {
+      setCustomSessionEdit(null);
+      onCurrentUserProfileUpdated?.(updated);
+      loadProfiles();
     }
   };
 
@@ -523,7 +556,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                 <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                 Otorisasi Akun Google Staf Baru
               </h3>
-              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email Akun Google</label>
                   <input 
@@ -545,6 +578,25 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                     <option value="receptionist">Receptionist</option>
                     <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Durasi Sesi Login</label>
+                  <select
+                    value={newUser.session_duration_hours}
+                    onChange={e => setNewUser({...newUser, session_duration_hours: parseInt(e.target.value, 10)})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value={1}>1 Jam</option>
+                    <option value={2}>2 Jam</option>
+                    <option value={4}>4 Jam</option>
+                    <option value={6}>6 Jam</option>
+                    <option value={8}>8 Jam (1 Shift)</option>
+                    <option value={12}>12 Jam</option>
+                    <option value={24}>24 Jam (1 Hari)</option>
+                    <option value={48}>48 Jam (2 Hari)</option>
+                    <option value={72}>72 Jam (3 Hari)</option>
+                    <option value={168}>168 Jam (7 Hari)</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -587,6 +639,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">User Email</th>
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Role</th>
                         <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Ganti Role</th>
+                        <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Durasi Sesi</th>
                         {canManageSubscriptions && (
                           <>
                             <th className="px-4 py-3 font-bold text-slate-400 text-[10px] uppercase">Status</th>
@@ -651,6 +704,83 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                                   </>
                                 )}
                               </select>
+                            </td>
+                            <td className="px-4 py-4">
+                              {(() => {
+                                const currentHours = profile.session_duration_hours ?? 24;
+                                const isCustomEditing = customSessionEdit?.id === profile.id;
+                                const isPreset = SESSION_HOUR_PRESETS.includes(currentHours);
+
+                                if (isCustomEditing) {
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={720}
+                                        value={customSessionEdit.hours}
+                                        onChange={(e) => setCustomSessionEdit({ id: profile.id, hours: e.target.value })}
+                                        className="w-16 text-[10px] font-bold border border-indigo-300 rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+                                        placeholder="Jam"
+                                        autoFocus
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const parsed = parseInt(customSessionEdit.hours, 10);
+                                          if (!isNaN(parsed) && parsed >= 1) {
+                                            handleChangeSessionDuration(profile.id, parsed);
+                                          } else {
+                                            alert('Masukkan durasi sesi minimal 1 jam.');
+                                          }
+                                        }}
+                                        className="px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold hover:bg-indigo-700"
+                                        title="Simpan durasi sesi"
+                                      >
+                                        ✓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setCustomSessionEdit(null)}
+                                        className="px-1.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200"
+                                        title="Batal"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <select
+                                    value={currentHours}
+                                    onChange={(e) => {
+                                      if (e.target.value === 'custom') {
+                                        setCustomSessionEdit({ id: profile.id, hours: String(currentHours) });
+                                      } else {
+                                        handleChangeSessionDuration(profile.id, parseInt(e.target.value, 10));
+                                      }
+                                    }}
+                                    className="text-[10px] font-bold border border-slate-200 rounded px-2 py-1.5 outline-none bg-white text-slate-700 hover:border-indigo-300 w-32"
+                                    title="Atur batas waktu sesi login akun ini"
+                                  >
+                                    {!isPreset && (
+                                      <option value={currentHours}>{currentHours} Jam (Custom)</option>
+                                    )}
+                                    <option value={1}>1 Jam</option>
+                                    <option value={2}>2 Jam</option>
+                                    <option value={4}>4 Jam</option>
+                                    <option value={6}>6 Jam</option>
+                                    <option value={8}>8 Jam (1 Shift)</option>
+                                    <option value={12}>12 Jam</option>
+                                    <option value={24}>24 Jam (1 Hari)</option>
+                                    <option value={48}>48 Jam (2 Hari)</option>
+                                    <option value={72}>72 Jam (3 Hari)</option>
+                                    <option value={168}>168 Jam (7 Hari)</option>
+                                    <option value="custom">Custom (Jam)...</option>
+                                  </select>
+                                );
+                              })()}
                             </td>
                             {canManageSubscriptions && (
                               <>

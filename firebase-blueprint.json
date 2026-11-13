@@ -13,7 +13,8 @@
         "subscription_status": { "type": "string", "enum": ["active", "inactive"] },
         "subscription_end_date": { "type": "string" },
         "grace_period_days": { "type": "number" },
-        "billing_cycle": { "type": "string", "enum": ["monthly", "yearly", "custom"] }
+        "billing_cycle": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
+        "session_duration_hours": { "type": "number", "description": "Login session duration in hours for this account" }
       },
       "required": ["id", "email", "role"]
     },

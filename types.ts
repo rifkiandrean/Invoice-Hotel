@@ -12,6 +12,7 @@ export interface UserProfile {
   subscription_end_date?: string;
   grace_period_days?: number; // Toleransi waktu jatuh tempo (misal: 3 hari, 7 hari)
   billing_cycle?: 'monthly' | 'yearly' | 'custom';
+  session_duration_hours?: number; // Durasi sesi login dinamis per akun (dalam jam, default 24 jam)
 }
 
 export interface HotelSettings {

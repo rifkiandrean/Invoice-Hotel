@@ -74,9 +74,15 @@ const App: React.FC = () => {
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  // Sesi Login: 1 Jam (60 menit)
-  const SESSION_DURATION_MS = 60 * 60 * 1000;
-  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(3600);
+  // Sesi Login Dinamis per Akun (Default 24 Jam jika belum diatur di Manajemen Akun)
+  const DEFAULT_SESSION_HOURS = 24;
+  const activeSessionHours =
+    userProfile?.session_duration_hours && userProfile.session_duration_hours > 0
+      ? userProfile.session_duration_hours
+      : DEFAULT_SESSION_HOURS;
+  const activeSessionDurationSeconds = activeSessionHours * 3600;
+  const activeSessionDurationMs = activeSessionDurationSeconds * 1000;
+  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(DEFAULT_SESSION_HOURS * 3600);
 
   // Profile Popover Menu State
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -132,20 +138,6 @@ const App: React.FC = () => {
     const { data: { subscription } } = onAuthStateChange(async (newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        // Inisialisasi atau validasi waktu login sesi 1 jam
-        const storedLoginTime = localStorage.getItem('hotelflow_login_timestamp');
-        const now = Date.now();
-        if (!storedLoginTime) {
-          localStorage.setItem('hotelflow_login_timestamp', now.toString());
-        } else {
-          const elapsed = now - parseInt(storedLoginTime, 10);
-          if (elapsed >= SESSION_DURATION_MS) {
-            // Sesi sudah lebih dari 1 jam
-            await performSignOut('Waktu sesi login 1 jam telah berakhir demi alasan keamanan. Silakan login kembali.');
-            return;
-          }
-        }
-
         let profile = await getCurrentUserProfile(newSession.user.id);
         const email = newSession.user.email?.toLowerCase();
         
@@ -164,17 +156,50 @@ const App: React.FC = () => {
           }
         }
 
-        // Auto-create profile for default hotel account if missing
-        if (!profile && email === 'hotelpangandaranblueorchid@gmail.com') {
+        // Auto-create profile for Super Admin or default hotel account if missing
+        if (!profile && email && SUPER_ADMIN_EMAILS.includes(email)) {
+          const newSuperProfile: UserProfile = {
+            id: newSession.user.id,
+            email: newSession.user.email || email,
+            role: 'super-admin',
+            subscription_status: 'active',
+            session_duration_hours: DEFAULT_SESSION_HOURS,
+            fullName: newSession.user.displayName || 'Super Admin',
+            photoURL: newSession.user.photoURL || undefined,
+            updated_at: new Date().toISOString()
+          };
+          await upsertProfile(newSuperProfile);
+          profile = newSuperProfile;
+        } else if (!profile && email === 'hotelpangandaranblueorchid@gmail.com') {
            const newProfile: UserProfile = {
              id: newSession.user.id,
              email: email,
              role: 'receptionist',
              subscription_status: 'active',
+             session_duration_hours: DEFAULT_SESSION_HOURS,
              updated_at: new Date().toISOString()
            };
            await upsertProfile(newProfile);
            profile = newProfile;
+        }
+
+        // Validasi batas waktu sesi dinamis berdasarkan pengaturan masing-masing akun
+        const resolvedSessionHours =
+          profile?.session_duration_hours && profile.session_duration_hours > 0
+            ? profile.session_duration_hours
+            : DEFAULT_SESSION_HOURS;
+        const resolvedDurationMs = resolvedSessionHours * 3600 * 1000;
+
+        const storedLoginTime = localStorage.getItem('hotelflow_login_timestamp');
+        const now = Date.now();
+        if (!storedLoginTime) {
+          localStorage.setItem('hotelflow_login_timestamp', now.toString());
+        } else {
+          const elapsed = now - parseInt(storedLoginTime, 10);
+          if (elapsed >= resolvedDurationMs) {
+            await performSignOut(`Waktu sesi login (${resolvedSessionHours} jam) telah berakhir demi alasan keamanan. Silakan login kembali.`);
+            return;
+          }
         }
 
         if (email && SUPER_ADMIN_EMAILS.includes(email)) {
@@ -185,7 +210,8 @@ const App: React.FC = () => {
             subscription_status: 'active',
             subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString(),
             fullName: newSession.user.displayName || 'Super Admin',
-            photoURL: newSession.user.photoURL || undefined
+            photoURL: newSession.user.photoURL || undefined,
+            session_duration_hours: resolvedSessionHours
           });
         } else if (email === 'hotelpangandaranblueorchid@gmail.com') {
           setUserProfile({ 
@@ -195,14 +221,16 @@ const App: React.FC = () => {
             subscription_status: profile?.subscription_status || 'active', 
             subscription_end_date: profile?.subscription_end_date,
             fullName: profile?.fullName || newSession.user.displayName || 'Hotel Pangandaran',
-            photoURL: newSession.user.photoURL || profile?.photoURL || undefined
+            photoURL: newSession.user.photoURL || profile?.photoURL || undefined,
+            session_duration_hours: resolvedSessionHours
           });
         } else {
           if (profile) {
             setUserProfile({
               ...profile,
               fullName: profile.fullName || newSession.user.displayName || undefined,
-              photoURL: newSession.user.photoURL || profile.photoURL || undefined
+              photoURL: newSession.user.photoURL || profile.photoURL || undefined,
+              session_duration_hours: resolvedSessionHours
             });
           } else {
             setUserProfile(profile);
@@ -217,27 +245,36 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Timer Interval Pengecekan Sesi 1 Jam (Setiap Detik)
+  // Timer Interval Pengecekan Sesi Dinamis per Akun (Setiap Detik)
   useEffect(() => {
-    if (!session) return;
+    if (!session || !userProfile) return;
 
-    const checkInterval = setInterval(() => {
+    const updateRemaining = () => {
       const storedLoginTime = localStorage.getItem('hotelflow_login_timestamp');
       if (storedLoginTime) {
         const elapsed = Date.now() - parseInt(storedLoginTime, 10);
-        const remainingMs = Math.max(0, SESSION_DURATION_MS - elapsed);
+        const remainingMs = Math.max(0, activeSessionDurationMs - elapsed);
         const remainingSec = Math.floor(remainingMs / 1000);
         setSessionRemainingSeconds(remainingSec);
 
-        if (elapsed >= SESSION_DURATION_MS) {
-          clearInterval(checkInterval);
-          performSignOut('Waktu sesi login Anda (1 jam) telah habis demi keamanan. Silakan login kembali.');
+        if (elapsed >= activeSessionDurationMs) {
+          performSignOut(`Waktu sesi login Anda (${activeSessionHours} jam) telah habis demi keamanan. Silakan login kembali.`);
+          return true;
         }
+      }
+      return false;
+    };
+
+    if (updateRemaining()) return;
+
+    const checkInterval = setInterval(() => {
+      if (updateRemaining()) {
+        clearInterval(checkInterval);
       }
     }, 1000);
 
     return () => clearInterval(checkInterval);
-  }, [session]);
+  }, [session, userProfile, activeSessionDurationMs, activeSessionHours]);
 
   const loadCloudSettings = useCallback(async (category: 'hotel' | 'villa') => {
     if (!session) return;
@@ -719,7 +756,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Sisa Waktu Sesi 1 Jam */}
+                  {/* Sisa Waktu Sesi Dinamis */}
                   <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-slate-700">
@@ -733,7 +770,9 @@ const App: React.FC = () => {
                           ? 'bg-rose-100 text-rose-700 animate-pulse' 
                           : 'bg-indigo-100 text-indigo-700'
                       }`}>
-                        {Math.floor(sessionRemainingSeconds / 60).toString().padStart(2, '0')}:{(sessionRemainingSeconds % 60).toString().padStart(2, '0')}
+                        {Math.floor(sessionRemainingSeconds / 3600).toString().padStart(2, '0')}:
+                        {Math.floor((sessionRemainingSeconds % 3600) / 60).toString().padStart(2, '0')}:
+                        {(sessionRemainingSeconds % 60).toString().padStart(2, '0')}
                       </span>
                     </div>
                     <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
@@ -741,13 +780,13 @@ const App: React.FC = () => {
                         className={`h-full transition-all duration-1000 ${
                           sessionRemainingSeconds < 300 ? 'bg-rose-500' : 'bg-indigo-600'
                         }`}
-                        style={{ width: `${Math.min(100, Math.max(0, (sessionRemainingSeconds / 3600) * 100))}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, (sessionRemainingSeconds / activeSessionDurationSeconds) * 100))}%` }}
                       ></div>
                     </div>
                     <p className="text-[9px] text-slate-400 mt-1.5 leading-snug">
                       {sessionRemainingSeconds < 300 
                         ? '⚠️ Sesi akan segera berakhir dalam beberapa menit demi keamanan.'
-                        : 'Sesi diperbarui setiap 1 jam demi keamanan data hotel.'}
+                        : `Batas sesi akun ini: ${activeSessionHours} jam (diatur di Manajemen Akun).`}
                     </p>
                   </div>
 
@@ -1085,6 +1124,18 @@ const App: React.FC = () => {
               settings={activeSettings} 
               onSave={handleSaveSettings} 
               currentUserRole={userProfile?.role} 
+              onCurrentUserProfileUpdated={(updated) => {
+                if (
+                  updated.id === userProfile?.id ||
+                  updated.email.toLowerCase() === userProfile?.email?.toLowerCase()
+                ) {
+                  setUserProfile(prev =>
+                    prev
+                      ? { ...prev, session_duration_hours: updated.session_duration_hours }
+                      : prev
+                  );
+                }
+              }}
             />
           </div>
         )}
