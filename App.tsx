@@ -9,6 +9,7 @@ import { MobileDashboardList } from './components/mobile/MobileDashboardList';
 import { DesktopDashboardTable } from './components/desktop/DesktopDashboardTable';
 import { MobileInvoiceForm } from './components/mobile/MobileInvoiceForm';
 import { DesktopInvoiceForm } from './components/desktop/DesktopInvoiceForm';
+import { HotelStatisticsPage } from './components/HotelStatisticsPage';
 import { ROOM_TYPES, VILLA_ROOM_TYPES, GUEST_TYPES, HOTEL_INFO, VILLA_INFO, TAX_RATE } from './constants';
 import { 
   fetchInvoicesFromFirebase, 
@@ -336,7 +337,7 @@ const App: React.FC = () => {
   }, [session]);
 
   useEffect(() => {
-    if (viewMode === 'list' && session) {
+    if ((viewMode === 'list' || viewMode === 'statistics') && session) {
       syncFromCloud();
     }
   }, [viewMode, syncFromCloud, session, activeCategory]);
@@ -942,6 +943,24 @@ const App: React.FC = () => {
                 <span>Villa</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('statistics');
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'statistics'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span>Statistik Data Hotel</span>
+              </button>
+
               {isSuperAdmin && (
                 <button
                   type="button"
@@ -1298,6 +1317,22 @@ const App: React.FC = () => {
                   );
                 }
               }}
+            />
+          </div>
+        )}
+
+        {viewMode === 'statistics' && (
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in">
+            <HotelStatisticsPage
+              invoices={invoices}
+              hotelSettings={hotelSettings}
+              villaSettings={villaSettings}
+              onSelectInvoice={(inv) => {
+                setActiveCategory(inv.category || 'hotel');
+                setCurrentInvoice(inv);
+                setViewMode('view');
+              }}
+              onRefresh={syncFromCloud}
             />
           </div>
         )}

@@ -83,4 +83,4 @@ export interface Invoice {
   cashierName?: string;
 }
 
-export type ViewMode = 'list' | 'create' | 'view' | 'settings';
+export type ViewMode = 'list' | 'create' | 'view' | 'settings' | 'statistics';
