@@ -84,22 +84,33 @@ const App: React.FC = () => {
   const activeSessionDurationMs = activeSessionDurationSeconds * 1000;
   const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(DEFAULT_SESSION_HOURS * 3600);
 
+  // Slide Side Menu State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   // Profile Popover Menu State
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close profile dropdown when clicking outside
+  // Close profile dropdown when clicking outside & close sidebar on Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSidebarOpen(false);
+        setShowProfileMenu(false);
+      }
+    };
     if (showProfileMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showProfileMenu]);
 
@@ -611,41 +622,45 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
-      <header className="bg-white border-b border-slate-200 h-14 shrink-0 flex items-center z-50 no-print">
-        <div className="max-w-[1600px] w-full mx-auto px-4 lg:px-6 flex justify-between items-center">
-          <div className="flex items-center gap-2 lg:gap-6">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('list'); setActiveCategory('hotel'); }}>
-              <div className="bg-indigo-600 p-1.5 rounded-lg shrink-0">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-              </div>
-              <div className="flex items-center gap-2 lg:gap-3">
-                <h1 className="text-base lg:text-lg font-black text-slate-900 hidden xs:block tracking-tighter">HotelFlow</h1>
-                <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
-                <h2 className="text-[11px] lg:text-xs font-bold text-indigo-600 uppercase tracking-widest hidden md:block line-clamp-1 max-w-[200px] lg:max-w-none">
-                  {activeSettings.name}
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-16 shrink-0 flex items-center z-50 no-print shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-5 lg:px-6 flex justify-between items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            {/* Tombol Ikon Menu untuk Slide Side Menu */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition-all active:scale-95 shrink-0"
+              title="Buka Menu Navigasi"
+              aria-label="Buka Menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Logo & Judul Header: VELL HOTEL & Blue Orchid Hotel */}
+            <div
+              className="flex items-center gap-2.5 cursor-pointer min-w-0 group"
+              onClick={() => { setViewMode('list'); setActiveCategory('hotel'); }}
+            >
+              <img
+                src="/assets/aistudio/IMG_20261113_124524_aaac2894.jpg"
+                alt="VELL Logo"
+                className="h-5 sm:h-6 w-auto object-contain mix-blend-multiply shrink-0 transition-transform duration-200 group-hover:scale-105"
+              />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2.5 min-w-0">
+                <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight uppercase italic leading-tight whitespace-nowrap">
+                  VELL HOTEL
+                </h1>
+                <div className="w-px h-4 bg-slate-200 hidden sm:block shrink-0"></div>
+                <h2 className="text-[10px] sm:text-xs font-bold text-indigo-600 tracking-wide leading-tight truncate">
+                  Blue Orchid Hotel
                 </h2>
               </div>
             </div>
-            <nav className="flex items-center gap-0.5 lg:gap-1">
-              <button 
-                onClick={() => { setActiveCategory('hotel'); setViewMode('list'); }} 
-                className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'list' && activeCategory === 'hotel' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-              >
-                Hotel & Cottage
-              </button>
-              <button 
-                onClick={() => { setActiveCategory('villa'); setViewMode('list'); }} 
-                className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${activeCategory === 'villa' && viewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-              >
-                Villa
-              </button>
-              {isSuperAdmin && (
-                <button onClick={handleSettingsClick} className={`px-2 lg:px-4 py-1.5 rounded-lg text-[10px] lg:text-xs font-bold ${viewMode === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Settings</button>
-              )}
-            </nav>
           </div>
           
-          <div className="flex items-center gap-2 lg:gap-3">
+          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
             {syncStatus !== 'idle' && (
               <div className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${
                 syncStatus === 'syncing' ? 'bg-slate-100 text-slate-500' :
@@ -835,6 +850,153 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {/* Backdrop Overlay untuk Slide Side Menu */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] no-print transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Slide Side Menu Drawer (Tersembunyi hingga ikon menu ditekan) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-[70] w-72 max-w-[85vw] bg-white shadow-2xl border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-out no-print ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Menu Navigasi Samping"
+      >
+        {/* Drawer Header */}
+        <div className="px-5 h-16 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="/assets/aistudio/IMG_20261113_124524_aaac2894.jpg"
+              alt="VELL Logo"
+              className="h-5 w-auto object-contain mix-blend-multiply shrink-0"
+            />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-black text-slate-900 uppercase italic tracking-tight leading-none">
+                VELL HOTEL
+              </span>
+              <span className="text-[10px] font-bold text-indigo-600 tracking-wide mt-0.5 truncate">
+                Blue Orchid Hotel
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors"
+            title="Tutup Menu"
+            aria-label="Tutup Menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Drawer Menu Items */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div>
+            <p className="px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+              Menu Utama
+            </p>
+            <nav className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCategory('hotel');
+                  setViewMode('list');
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'list' && activeCategory === 'hotel'
+                    ? 'bg-slate-900 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span>Hotel & Cottage</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCategory('villa');
+                  setViewMode('list');
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'list' && activeCategory === 'villa'
+                    ? 'bg-slate-900 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span>Villa</span>
+              </button>
+
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    handleSettingsClick();
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                    viewMode === 'settings'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>Settings</span>
+                </button>
+              )}
+            </nav>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <p className="px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+              Aksi Cepat
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSidebarOpen(false);
+                createNewInvoice();
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Buat Invoice Baru</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer Footer */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/80 space-y-2 shrink-0">
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 text-[11px]">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Properti Aktif</p>
+            <p className="font-bold text-slate-800 truncate mt-0.5">{activeSettings.name}</p>
+            <p className="text-[10px] text-slate-500 truncate mt-1">{session?.user?.email}</p>
+          </div>
+          <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+            VELL STUDIO • www.vellstudio.my.id
+          </p>
+        </div>
+      </aside>
 
       <main className="flex-1 overflow-hidden flex flex-col relative">
         {viewMode === 'list' && (
