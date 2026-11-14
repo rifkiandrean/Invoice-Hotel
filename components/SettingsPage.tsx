@@ -10,6 +10,8 @@ import {
   fetchInvoicesFromFirebase 
 } from '../services/firebaseService';
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { HOTEL_INFO } from '../constants';
 import { SubscriptionBillingModal, InvoiceStatsSummary } from './SubscriptionBillingModal';
 
@@ -34,6 +36,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
   const [formData, setFormData] = React.useState<HotelSettings>(settings);
   const [isUploading, setIsUploading] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   
   // Account Management States
@@ -384,6 +387,403 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
     }
   };
 
+  const handleExportToPdfFull = async () => {
+    setIsExportingPdf(true);
+    setExportStatus('Mengambil seluruh data invoice & item dari database...');
+    try {
+      const allInvoices = await fetchInvoicesFromFirebase();
+      const totalItemsCount = allInvoices.reduce((sum, inv) => sum + (inv.items?.length || 0), 0);
+      setExportStatus(`Menyusun dokumen PDF (${allInvoices.length} invoice, ${totalItemsCount} item)...`);
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 10;
+      const contentWidth = pageWidth - marginX * 2;
+      const fmt = (n: number) => Math.round(n || 0).toLocaleString('id-ID');
+
+      const grandRevenue = allInvoices
+        .filter((i) => i.status !== 'cancelled')
+        .reduce((s, inv) => {
+          const sub = (inv.items || []).reduce((x, it) => x + (it.quantity || 0) * (it.nights || 0) * (it.unitPrice || 0), 0);
+          return s + (sub - (inv.discount || 0));
+        }, 0);
+      const grandPaid = allInvoices
+        .filter((i) => i.status !== 'cancelled')
+        .reduce((s, inv) => s + (inv.payments || []).reduce((x, p) => x + (p.amount || 0), 0), 0);
+      const grandBalance = Math.max(0, grandRevenue - grandPaid);
+
+      const now = new Date();
+      const dateLabel = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      const timeLabel = now.toLocaleTimeString('id-ID');
+
+      // 1. Kop Laporan Backup
+      let y = 12;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(67, 56, 202); // indigo
+      doc.text('VELL HOTEL  |  Blue Orchid Hotel', marginX, y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Tanggal Ekspor: ${dateLabel}`, pageWidth - marginX, y, { align: 'right' });
+
+      y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text('ARSIP BACKUP FULL DATA & ITEM INVOICE', marginX, y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Waktu: ${timeLabel}  |  Penyedia: VELL STUDIO`, pageWidth - marginX, y, { align: 'right' });
+
+      y += 4.5;
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      const hotelHeader = `${formData.name || settings.name || 'Blue Orchid Hotel'} - ${formData.address || settings.address || '-'}`;
+      const hotelHeaderLines = doc.splitTextToSize(hotelHeader, contentWidth);
+      doc.text(hotelHeaderLines, marginX, y);
+      y += hotelHeaderLines.length * 3.8 + 1.5;
+
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.5);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 4;
+
+      // 2. Ringkasan Eksekutif
+      autoTable(doc, {
+        startY: y,
+        margin: { left: marginX, right: marginX },
+        theme: 'grid',
+        head: [['Total Invoice', 'Total Item Invoice', 'Total Tagihan Aktif', 'Total Terbayar', 'Sisa Tagihan']],
+        body: [[
+          `${allInvoices.length} Dokumen`,
+          `${totalItemsCount} Item`,
+          `Rp ${fmt(grandRevenue)}`,
+          `Rp ${fmt(grandPaid)}`,
+          `Rp ${fmt(grandBalance)}`,
+        ]],
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [51, 65, 85],
+          fontSize: 7.5,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        bodyStyles: {
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          textColor: [15, 23, 42],
+          halign: 'center',
+        },
+        styles: {
+          cellPadding: 2.2,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.2,
+        },
+      });
+
+      y = ((doc as any).lastAutoTable?.finalY ?? y + 14) + 6;
+
+      // 3. Bagian 1: Rincian Lengkap Per Invoice & Semua Item
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`BAGIAN 1 - RINCIAN LENGKAP SELURUH INVOICE (${allInvoices.length} Invoice)`, marginX, y);
+      y += 2;
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.3);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 4;
+
+      if (allInvoices.length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Belum ada data invoice tersimpan di database.', marginX, y + 4);
+        y += 10;
+      }
+
+      const flatItems: {
+        invoiceNumber: string;
+        category: string;
+        guestName: string;
+        itemDate: string;
+        description: string;
+        quantity: number;
+        nights: number;
+        unitPrice: number;
+        total: number;
+      }[] = [];
+
+      allInvoices.forEach((inv, invIdx) => {
+        const sub = (inv.items || []).reduce((s, it) => s + (it.quantity || 0) * (it.nights || 0) * (it.unitPrice || 0), 0);
+        const total = sub - (inv.discount || 0);
+        const paid = (inv.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+        const balance = total - paid;
+
+        (inv.items || []).forEach((it) => {
+          flatItems.push({
+            invoiceNumber: inv.invoiceNumber || '-',
+            category: inv.category === 'villa' ? 'Villa' : 'Hotel',
+            guestName: inv.guest?.name || '-',
+            itemDate: it.date || inv.date || '-',
+            description: it.description || '-',
+            quantity: it.quantity || 0,
+            nights: it.nights || 0,
+            unitPrice: it.unitPrice || 0,
+            total: (it.quantity || 0) * (it.nights || 0) * (it.unitPrice || 0),
+          });
+        });
+
+        // Pastikan cukup ruang minimal untuk header invoice + info + minimal 1 baris item
+        if (y > pageHeight - 52) {
+          doc.addPage();
+          y = 14;
+        }
+
+        const catLabel = inv.category === 'villa' ? 'VILLA' : 'HOTEL';
+        const statusLabel = (inv.status || 'draft').toUpperCase();
+
+        // Header bar invoice
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(203, 213, 225);
+        doc.rect(marginX, y, contentWidth, 6.5, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`#${invIdx + 1}  ${inv.invoiceNumber || '-'}  [${catLabel}]  |  Tgl: ${inv.date || '-'}`, marginX + 2.5, y + 4.4);
+        doc.setFontSize(7.5);
+        doc.setTextColor(67, 56, 202);
+        doc.text(`STATUS: ${statusLabel}`, pageWidth - marginX - 2.5, y + 4.4, { align: 'right' });
+        y += 6.5;
+
+        // Tabel Info Tamu & Menginap
+        autoTable(doc, {
+          startY: y,
+          margin: { left: marginX, right: marginX },
+          theme: 'grid',
+          body: [[
+            `Tamu: ${inv.guest?.name || '-'}\nPerusahaan: ${inv.guest?.company || '-'}\nHP/Email: ${inv.guest?.phone || '-'} / ${inv.guest?.email || '-'}`,
+            `Kamar: ${inv.stay?.roomNumber || '-'} (${inv.stay?.roomType || '-'})\nTipe Tamu: ${inv.stay?.guestType || '-'} (${inv.stay?.guestsCount || 1} org)\nCheck-In/Out: ${inv.stay?.checkIn || '-'} s/d ${inv.stay?.checkOut || '-'}`,
+            `Kasir: ${inv.cashierName || '-'}\nTotal: Rp ${fmt(total)}\nTerbayar: Rp ${fmt(paid)} | Sisa: Rp ${fmt(balance)}`,
+          ]],
+          styles: {
+            fontSize: 7.5,
+            cellPadding: 2,
+            textColor: [30, 41, 59],
+            lineColor: [203, 213, 225],
+            lineWidth: 0.2,
+            valign: 'top',
+          },
+          columnStyles: {
+            0: { cellWidth: contentWidth * 0.35 },
+            1: { cellWidth: contentWidth * 0.36 },
+            2: { cellWidth: contentWidth * 0.29 },
+          },
+        });
+        y = (doc as any).lastAutoTable?.finalY ?? y + 14;
+
+        // Tabel Item Invoice
+        const itemTableRows = (inv.items || []).length === 0
+          ? [['-', '-', 'Tidak ada item tercatat.', '-', '-', '-', '-']]
+          : (inv.items || []).map((item, idx) => [
+              String(idx + 1),
+              item.date || '-',
+              item.description || '-',
+              String(item.quantity ?? 0),
+              String(item.nights ?? 0),
+              `Rp ${fmt(item.unitPrice || 0)}`,
+              `Rp ${fmt((item.quantity || 0) * (item.nights || 0) * (item.unitPrice || 0))}`,
+            ]);
+
+        autoTable(doc, {
+          startY: y,
+          margin: { left: marginX, right: marginX },
+          theme: 'grid',
+          head: [['No', 'Tanggal', 'Deskripsi Item', 'Qty', 'Mlm', 'Harga Satuan', 'Subtotal']],
+          body: itemTableRows,
+          headStyles: {
+            fillColor: [248, 250, 252],
+            textColor: [71, 85, 105],
+            fontSize: 7.2,
+            fontStyle: 'bold',
+          },
+          styles: {
+            fontSize: 7.5,
+            cellPadding: 1.7,
+            textColor: [15, 23, 42],
+            lineColor: [226, 232, 240],
+            lineWidth: 0.2,
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 9 },
+            1: { cellWidth: 21 },
+            2: { cellWidth: 'auto' },
+            3: { halign: 'center', cellWidth: 10 },
+            4: { halign: 'center', cellWidth: 10 },
+            5: { halign: 'right', cellWidth: 26 },
+            6: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
+          },
+        });
+        y = (doc as any).lastAutoTable?.finalY ?? y + 10;
+
+        // Keterangan Diskon, Pembayaran, Catatan, Remarks
+        const extraLines: string[] = [];
+        if (inv.discount > 0) {
+          extraLines.push(`Diskon: -Rp ${fmt(inv.discount)}`);
+        }
+        if (inv.payments && inv.payments.length > 0) {
+          const payText = inv.payments
+            .map((p) => `${p.date || '-'} (${p.method}: Rp ${fmt(p.amount)})`)
+            .join(' | ');
+          extraLines.push(`Riwayat Pembayaran: ${payText}`);
+        }
+        if (inv.notes) extraLines.push(`Catatan: ${inv.notes}`);
+        if (inv.remarks) extraLines.push(`Remarks: ${inv.remarks}`);
+
+        if (extraLines.length > 0) {
+          autoTable(doc, {
+            startY: y,
+            margin: { left: marginX, right: marginX },
+            theme: 'grid',
+            body: [[extraLines.join('\n')]],
+            styles: {
+              fontSize: 7.2,
+              cellPadding: 2,
+              fillColor: [248, 250, 252],
+              textColor: [71, 85, 105],
+              lineColor: [203, 213, 225],
+              lineWidth: 0.2,
+            },
+          });
+          y = (doc as any).lastAutoTable?.finalY ?? y + 6;
+        }
+
+        y += 4.5;
+      });
+
+      // 4. Bagian 2: Rekapitulasi Master Semua Item Invoice (Halaman Baru)
+      doc.addPage();
+      y = 14;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`BAGIAN 2 - REKAPITULASI FULL SELURUH ITEM INVOICE (${flatItems.length} Item)`, marginX, y);
+      y += 2;
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.4);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 3.5;
+
+      const grandFlatTotal = flatItems.reduce((s, r) => s + r.total, 0);
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: marginX, right: marginX, bottom: 14 },
+        theme: 'grid',
+        showHead: 'everyPage',
+        showFoot: 'lastPage',
+        head: [['No', 'No. Invoice', 'Kat', 'Tamu', 'Tgl Item', 'Deskripsi Item', 'Qty', 'Mlm', 'Tarif (Rp)', 'Total (Rp)']],
+        body: flatItems.length === 0
+          ? [['-', '-', '-', '-', '-', 'Belum ada data item invoice.', '-', '-', '-', '-']]
+          : flatItems.map((row, idx) => [
+              String(idx + 1),
+              row.invoiceNumber,
+              row.category,
+              row.guestName,
+              row.itemDate,
+              row.description,
+              String(row.quantity),
+              String(row.nights),
+              fmt(row.unitPrice),
+              fmt(row.total),
+            ]),
+        foot: [[
+          '',
+          '',
+          '',
+          '',
+          '',
+          `GRAND TOTAL SELURUH ITEM (${flatItems.length} ITEM)`,
+          '',
+          '',
+          '',
+          `Rp ${fmt(grandFlatTotal)}`,
+        ]],
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontSize: 7.2,
+          fontStyle: 'bold',
+        },
+        footStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontSize: 7.8,
+          fontStyle: 'bold',
+          halign: 'right',
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 1.6,
+          textColor: [15, 23, 42],
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 8 },
+          1: { cellWidth: 26, fontStyle: 'bold' },
+          2: { halign: 'center', cellWidth: 10 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 'auto' },
+          6: { halign: 'center', cellWidth: 8 },
+          7: { halign: 'center', cellWidth: 8 },
+          8: { halign: 'right', cellWidth: 21 },
+          9: { halign: 'right', cellWidth: 23, fontStyle: 'bold' },
+        },
+      });
+
+      // 5. Tambahkan nomor halaman pada setiap halaman
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(marginX, pageHeight - 9, pageWidth - marginX, pageHeight - 9);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(
+          'VELL HOTEL | Blue Orchid Hotel - Arsip Backup Full Invoice (VELL STUDIO)',
+          marginX,
+          pageHeight - 5
+        );
+        doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth - marginX, pageHeight - 5, { align: 'right' });
+      }
+
+      const dateStr = now.toISOString().split('T')[0];
+      const fileName = `Backup_Full_Item_Invoice_${dateStr}.pdf`;
+      doc.save(fileName);
+
+      setExportStatus(null);
+      alert(`Backup PDF lengkap (${allInvoices.length} invoice, ${totalItemsCount} item, ${totalPages} halaman) berhasil diunduh: "${fileName}"`);
+    } catch (e: any) {
+      console.error('Export PDF error:', e);
+      alert('Gagal mengekspor file PDF: ' + (e?.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsExportingPdf(false);
+      setExportStatus(null);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
@@ -407,7 +807,7 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
               onClick={() => setActiveTab('backup')}
               className={`flex-1 py-5 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'backup' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
             >
-              Backup File Excel 📊
+              Backup Data (Excel & PDF) 📊
             </button>
           )}
         </div>
@@ -935,16 +1335,16 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-emerald-900">Backup Data Tagihan ke File Excel (.xlsx)</h3>
+                  <h3 className="text-base font-bold text-emerald-900">Backup Data Tagihan ke Excel (.xlsx) & PDF Full (.pdf)</h3>
                   <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                    Unduh seluruh arsip data operasional hotel dan villa Anda ke dalam satu file Microsoft Excel yang rapi, terstruktur, dan siap dibuka di Excel / Google Sheets.
+                    Unduh seluruh arsip data operasional hotel dan villa Anda ke file Microsoft Excel atau dokumen <strong>PDF Full Semua Data & Item Invoice</strong> yang terstruktur dan siap arsip.
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Struktur Lembar Kerja (Worksheet)</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Cakupan Data Backup Lengkap</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold mb-2">1</div>
@@ -953,8 +1353,8 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center font-bold mb-2">2</div>
-                  <span className="font-bold text-slate-800 block text-sm">Rincian Item</span>
-                  <p className="text-[11px] text-slate-500 mt-1">Breakdown item tagihan per baris: kamar, extra bed, room service, quantity, dan tarif.</p>
+                  <span className="font-bold text-slate-800 block text-sm">Full Rincian Item</span>
+                  <p className="text-[11px] text-slate-500 mt-1">Seluruh item tagihan per baris: kamar, extra bed, room service, quantity, malam, dan tarif.</p>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div className="w-7 h-7 bg-teal-50 text-teal-600 rounded-lg flex items-center justify-center font-bold mb-2">3</div>
@@ -970,12 +1370,12 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                 </div>
               )}
 
-              <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+              <div className="pt-2 flex flex-col sm:flex-row flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handleExportToExcel}
-                  disabled={isExporting}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2.5 text-sm"
+                  disabled={isExporting || isExportingPdf}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2.5 text-sm"
                 >
                   {isExporting ? (
                     <>
@@ -991,6 +1391,28 @@ export const SettingsPage: React.FC<Props> = ({ settings, onSave, currentUserRol
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportToPdfFull}
+                  disabled={isExporting || isExportingPdf}
+                  className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-lg shadow-rose-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2.5 text-sm"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full"></div>
+                      Sedang Membuat File PDF Full...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      Download Backup PDF Full (.pdf)
+                    </>
+                  )}
+                </button>
+
                 <span className="text-[11px] text-slate-400 italic">
                   Data diambil secara real-time langsung dari database cloud.
                 </span>
